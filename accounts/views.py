@@ -9,8 +9,8 @@ from .serializers import LoginSerializer
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, BasePermission
 
-from .serializers import UserSerializer, CompanySerializer
-from .models import User, Company
+from .serializers import UserSerializer, CompanySerializer, OrganisationSerializer
+from .models import User, Company, Organisation
 
 
 class IsAdminRole(BasePermission):
@@ -23,15 +23,33 @@ class IsAdminRole(BasePermission):
 
 
 class UserViewSet(ModelViewSet):
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsAdminRole]
 
+    def get_queryset(self):
+        return User.objects.filter(company=self.request.user.company)
+
+    def perform_create(self, serializer):
+        serializer.save(company=self.request.user.company)
+
 
 class CompanyViewSet(ModelViewSet):
-    queryset = Company.objects.all()
     serializer_class = CompanySerializer
     permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get_queryset(self):
+        return Company.objects.filter(id=self.request.user.company_id)
+
+
+class OrganisationViewSet(ModelViewSet):
+    serializer_class = OrganisationSerializer
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get_queryset(self):
+        return Organisation.objects.filter(company=self.request.user.company)
+
+    def perform_create(self, serializer):
+        serializer.save(company=self.request.user.company)
 
 
 class LoginAPIView(APIView):

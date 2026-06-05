@@ -2,7 +2,6 @@ from django.contrib import admin
 
 from .models import (
 	Site,
-	Route,
 	Checkpoint,
 	Shift,
 	PatrolLog,
@@ -22,7 +21,6 @@ class IncidentAdmin(admin.ModelAdmin):
 
 # Register all patrols models with default ModelAdmin
 admin.site.register(Site)
-admin.site.register(Route)
 admin.site.register(Checkpoint)
 admin.site.register(Shift)
 admin.site.register(PatrolLog)

@@ -4,7 +4,7 @@ from io import BytesIO
 import qrcode
 from rest_framework import serializers
 
-from .models import Checkpoint, Incident, Shift, Site, PatrolLog, Route
+from .models import Checkpoint, Incident, Shift, Site, PatrolLog, Visitor
 from accounts.models import User
 
 class ShiftSerializer(serializers.ModelSerializer):
@@ -114,6 +114,8 @@ class IncidentSerializer(serializers.ModelSerializer):
 
 
 class ShiftCalendarSerializer(serializers.ModelSerializer):
+    guard_id = serializers.IntegerField(read_only=True)
+    site_id = serializers.IntegerField(read_only=True)
     guard_name = serializers.SerializerMethodField()
     site_name = serializers.CharField(source='site.name', read_only=True)
     patrol_log_count = serializers.SerializerMethodField()
@@ -124,7 +126,9 @@ class ShiftCalendarSerializer(serializers.ModelSerializer):
         model = Shift
         fields = [
             'id',
+            'guard_id',
             'guard_name',
+            'site_id',
             'site_name',
             'status',
             'start_time',
@@ -152,6 +156,13 @@ class ShiftCalendarSerializer(serializers.ModelSerializer):
 
 
 class SiteSerializer(serializers.ModelSerializer):
+    organisation_id = serializers.IntegerField(read_only=True)
+    organisation_name = serializers.CharField(source='organisation.name', read_only=True)
+    guard_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        read_only=True,
+        source='guards'
+    )
 
     class Meta:
         model = Site
@@ -161,7 +172,31 @@ class SiteSerializer(serializers.ModelSerializer):
             'location_name',
             'latitude',
             'longitude',
+            'organisation_id',
+            'organisation_name',
+            'guard_ids',
         ]
+
+
+class VisitorSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Visitor
+        fields = [
+            'id',
+            'first_name',
+            'last_name',
+            'full_name',
+            'phone_number',
+            'email',
+            'department',
+            'check_in',
+            'check_out',
+        ]
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()
 
 
 class PatrolLogSerializer(serializers.ModelSerializer):
@@ -205,23 +240,8 @@ class PatrolLogSerializer(serializers.ModelSerializer):
         return full_name or obj.shift.guard.email
 
 
-class RouteSerializer(serializers.ModelSerializer):
-    site_name = serializers.CharField(source='site.name', read_only=True)
-
-    class Meta:
-        model = Route
-        fields = [
-            "id",
-            "name",
-            "site",
-            "site_name",
-        ]
-
-
 class CheckpointAdminSerializer(serializers.ModelSerializer):
-    route_name = serializers.CharField(source='route.name', read_only=True)
-    site_id = serializers.IntegerField(source='route.site_id', read_only=True)
-    site_name = serializers.CharField(source='route.site.name', read_only=True)
+    site_name = serializers.CharField(source='site.name', read_only=True)
     qr_code_image = serializers.SerializerMethodField()
 
     class Meta:
@@ -229,9 +249,7 @@ class CheckpointAdminSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
-            "route",
-            "route_name",
-            "site_id",
+            "site",
             "site_name",
             "latitude",
             "longitude",
@@ -239,7 +257,17 @@ class CheckpointAdminSerializer(serializers.ModelSerializer):
             "qr_code",
             "qr_code_image",
         ]
-        read_only_fields = ["qr_code", "qr_code_image", "route_name", "site_id", "site_name"]
+        read_only_fields = ["qr_code", "qr_code_image", "site_name"]
+
+    def validate_latitude(self, value):
+        if value < -90 or value > 90:
+            raise serializers.ValidationError("Latitude must be between -90 and 90.")
+        return value
+
+    def validate_longitude(self, value):
+        if value < -180 or value > 180:
+            raise serializers.ValidationError("Longitude must be between -180 and 180.")
+        return value
 
     def get_qr_code_image(self, obj):
         qr_image = qrcode.make(obj.qr_code)

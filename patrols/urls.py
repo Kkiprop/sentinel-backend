@@ -31,12 +31,12 @@ urlpatterns = [
 ]
 
 from rest_framework.routers import DefaultRouter
-from .api_views import CheckpointAdminViewSet, SiteAdminViewSet, RouteAdminViewSet, ShiftAdminViewSet
+from .api_views import CheckpointAdminViewSet, SiteAdminViewSet, ShiftAdminViewSet, VisitorAdminViewSet
 
 router = DefaultRouter()
 router.register(r'manage/sites', SiteAdminViewSet, basename='manage-sites')
-router.register(r'manage/routes', RouteAdminViewSet, basename='manage-routes')
 router.register(r'manage/shifts', ShiftAdminViewSet, basename='manage-shifts')
 router.register(r'manage/checkpoints', CheckpointAdminViewSet, basename='manage-checkpoints')
+router.register(r'manage/visitors', VisitorAdminViewSet, basename='manage-visitors')
 
 urlpatterns += router.urls

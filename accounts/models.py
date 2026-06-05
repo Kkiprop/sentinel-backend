@@ -11,6 +11,15 @@ class Company(models.Model):
         return self.name
 
 
+class Organisation(models.Model):
+    name = models.CharField(max_length=255)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="organisations")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+
 class User(AbstractUser):
     ROLE_CHOICES = (
         ('admin', 'Admin'),
@@ -24,6 +33,9 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="users", null=True, blank=True)
+    payroll_code = models.CharField(max_length=100, null=True, blank=True)
+    off_days = models.PositiveIntegerField(default=0)
+    qualifications = models.TextField(null=True, blank=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

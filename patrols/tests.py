@@ -5,7 +5,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from accounts.models import Company
 
-from .models import Checkpoint, PatrolLog, Route, Shift, Site
+from .models import Checkpoint, PatrolLog, Shift, Site
 from .serializers import CheckpointAdminSerializer
 from .services import process_qr_scan
 from .views import DashboardAPIView
@@ -37,8 +37,7 @@ class CheckpointWorkflowTests(TestCase):
 			longitude=37.0,
 			company=self.company,
 		)
-		self.primary_route = Route.objects.create(name="Perimeter", site=self.primary_site)
-		self.secondary_route = Route.objects.create(name="Yard", site=self.secondary_site)
+		# organisation is optional for site creation in tests
 		self.shift = Shift.objects.create(
 			guard=self.guard,
 			site=self.primary_site,
@@ -49,7 +48,7 @@ class CheckpointWorkflowTests(TestCase):
 	def test_checkpoint_serializer_returns_qr_image(self):
 		checkpoint = Checkpoint.objects.create(
 			name="Gate A",
-			route=self.primary_route,
+			site=self.primary_site,
 			latitude=1.0001,
 			longitude=36.0001,
 			order=1,
@@ -57,15 +56,31 @@ class CheckpointWorkflowTests(TestCase):
 
 		serializer = CheckpointAdminSerializer(checkpoint)
 
-		self.assertTrue(checkpoint.qr_code.startswith("checkpoint:"))
+		self.assertEqual(checkpoint.qr_code, "checkpoint:1:1.000100:36.000100")
 		self.assertTrue(
 			serializer.data["qr_code_image"].startswith("data:image/png;base64,")
 		)
 
+	def test_checkpoint_qr_updates_when_coordinates_change(self):
+		checkpoint = Checkpoint.objects.create(
+			name="Gate A",
+			site=self.primary_site,
+			latitude=1.0001,
+			longitude=36.0001,
+			order=1,
+		)
+
+		checkpoint.latitude = 1.2222
+		checkpoint.longitude = 36.3333
+		checkpoint.save()
+
+		checkpoint.refresh_from_db()
+		self.assertEqual(checkpoint.qr_code, "checkpoint:1:1.222200:36.333300")
+
 	def test_scan_rejects_checkpoint_from_other_site(self):
 		checkpoint = Checkpoint.objects.create(
 			name="Warehouse Door",
-			route=self.secondary_route,
+			site=self.secondary_site,
 			latitude=2.0001,
 			longitude=37.0001,
 			order=1,
@@ -86,7 +101,7 @@ class CheckpointWorkflowTests(TestCase):
 	def test_scan_stores_checkpoint_coordinate_snapshot(self):
 		checkpoint = Checkpoint.objects.create(
 			name="Gate B",
-			route=self.primary_route,
+			site=self.primary_site,
 			latitude=1.1234,
 			longitude=36.5678,
 			order=2,
@@ -147,18 +162,16 @@ class DashboardStatsTests(TestCase):
 			longitude=37.0,
 			company=self.other_company,
 		)
-		self.route = Route.objects.create(name="Route A", site=self.site)
-		self.other_route = Route.objects.create(name="Route B", site=self.other_site)
 		self.checkpoint = Checkpoint.objects.create(
 			name="Gate A",
-			route=self.route,
+			site=self.site,
 			latitude=1.0001,
 			longitude=36.0001,
 			order=1,
 		)
 		self.other_checkpoint = Checkpoint.objects.create(
 			name="Gate B",
-			route=self.other_route,
+			site=self.other_site,
 			latitude=2.0001,
 			longitude=37.0001,
 			order=1,

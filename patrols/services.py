@@ -119,7 +119,7 @@ def process_qr_scan(user, data):
             "Invalid checkpoint QR"
         )
 
-    if checkpoint.route.site_id != shift.site_id:
+    if checkpoint.site_id != shift.site_id:
         raise Exception(
             "Checkpoint does not belong to the active shift site"
         )

@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 
-from .models import User, Company
+from .models import User, Company, Organisation
 
 
 class LoginSerializer(serializers.Serializer):
@@ -35,6 +35,20 @@ class CompanySerializer(serializers.ModelSerializer):
         ]
 
 
+class OrganisationSerializer(serializers.ModelSerializer):
+    company_id = serializers.IntegerField(source='company_id', read_only=True)
+    company_name = serializers.CharField(source='company.name', read_only=True)
+
+    class Meta:
+        model = Organisation
+        fields = [
+            "id",
+            "name",
+            "company_id",
+            "company_name",
+        ]
+
+
 class UserSerializer(serializers.ModelSerializer):
     company = serializers.PrimaryKeyRelatedField(
         queryset=Company.objects.all(),
@@ -53,8 +67,14 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "role",
             "company",
+            "date_joined",
+            "payroll_code",
+            "off_days",
+            "qualifications",
             "password",
         ]
+
+        read_only_fields = ["date_joined"]
 
     def create(self, validated_data):
         password = validated_data.pop("password", None)

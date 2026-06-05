@@ -1,8 +1,8 @@
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, BasePermission
 
-from .models import Checkpoint, Site, Route, Shift
-from .serializers import CheckpointAdminSerializer, SiteSerializer, RouteSerializer, ShiftAdminSerializer
+from .models import Checkpoint, Site, Shift, Visitor
+from .serializers import CheckpointAdminSerializer, SiteSerializer, ShiftAdminSerializer, VisitorSerializer
 
 
 class IsAdminRole(BasePermission):
@@ -15,24 +15,42 @@ class IsAdminRole(BasePermission):
 
 
 class SiteAdminViewSet(ModelViewSet):
-    queryset = Site.objects.all()
     serializer_class = SiteSerializer
     permission_classes = [IsAuthenticated, IsAdminRole]
 
+    def get_queryset(self):
+        return Site.objects.filter(company=self.request.user.company)
 
-class RouteAdminViewSet(ModelViewSet):
-    queryset = Route.objects.all()
-    serializer_class = RouteSerializer
-    permission_classes = [IsAuthenticated, IsAdminRole]
+    def perform_create(self, serializer):
+        serializer.save(company=self.request.user.company)
 
 
 class ShiftAdminViewSet(ModelViewSet):
-    queryset = Shift.objects.all()
     serializer_class = ShiftAdminSerializer
     permission_classes = [IsAuthenticated, IsAdminRole]
 
+    def get_queryset(self):
+        return Shift.objects.filter(site__company=self.request.user.company)
+
 
 class CheckpointAdminViewSet(ModelViewSet):
-    queryset = Checkpoint.objects.select_related('route', 'route__site').all()
     serializer_class = CheckpointAdminSerializer
     permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get_queryset(self):
+        queryset = Checkpoint.objects.select_related('site').filter(site__company=self.request.user.company)
+        site_id = self.request.query_params.get('site_id')
+        if site_id:
+            queryset = queryset.filter(site_id=site_id)
+        return queryset
+
+
+class VisitorAdminViewSet(ModelViewSet):
+    serializer_class = VisitorSerializer
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get_queryset(self):
+        return Visitor.objects.filter(company=self.request.user.company)
+
+    def perform_create(self, serializer):
+        serializer.save(company=self.request.user.company)
