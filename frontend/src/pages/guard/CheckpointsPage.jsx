@@ -113,15 +113,6 @@ export default function CheckpointsPage() {
     }
 
     streamRef.current = stream;
-    if (videoRef.current) {
-      videoRef.current.muted = true;
-      videoRef.current.playsInline = true;
-      videoRef.current.autoplay = true;
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play().catch(() => {
-        // Some mobile browsers may delay autoplay until user interacts.
-      });
-    }
     setCameraAvailable(true);
     setCameraError("");
   };
@@ -133,6 +124,23 @@ export default function CheckpointsPage() {
       tracks.forEach((track) => track.stop());
     };
   }, []);
+
+  useEffect(() => {
+    if (!cameraAvailable || !streamRef.current || !videoRef.current) {
+      return;
+    }
+
+    const video = videoRef.current;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    if (video.srcObject !== streamRef.current) {
+      video.srcObject = streamRef.current;
+    }
+    video.play().catch(() => {
+      // Some mobile browsers may still delay autoplay until user interacts.
+    });
+  }, [cameraAvailable]);
 
   const captureFromCamera = async () => {
     if (!videoRef.current || !canvasRef.current) {
