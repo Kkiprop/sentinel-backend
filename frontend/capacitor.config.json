@@ -1,0 +1,9 @@
+{
+  "appId": "ke.co.gofast.sentinel",
+  "appName": "Sentinel",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

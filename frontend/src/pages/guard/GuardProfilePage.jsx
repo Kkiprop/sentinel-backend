@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   FiMail, 
-  FiUser, 
   FiMapPin, 
   FiShield, 
   FiLogOut, 
@@ -13,11 +12,20 @@ import {
 import { useAuth } from "../../contexts/AuthContext.jsx";
 
 export default function GuardProfilePage() {
-  const { user, logout } = useAuth(); // Extracted logout function from AuthContext
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // Computes fallback display name strings safely
   const fullName = useMemo(() => {
     return `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || user?.email || "Guard Officer";
+  }, [user]);
+
+  // Generates 2-character initials placeholder emblem for a native account feel
+  const initials = useMemo(() => {
+    if (user?.first_name || user?.last_name) {
+      return `${user?.first_name?.[0] || ""}${user?.last_name?.[0] || ""}`.toUpperCase();
+    }
+    return user?.email ? user.email.slice(0, 2).toUpperCase() : "GO";
   }, [user]);
 
   const handleLogout = async () => {
@@ -27,15 +35,23 @@ export default function GuardProfilePage() {
         navigate("/login");
       }
     } catch (error) {
-      console.error("Logout failed:", error);
+      console.error("Logout runtime context failure:", error);
     }
   };
 
   const nativeTapStyle = `
+    .btn-tap-effect {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
     .btn-tap-effect:active {
-      transform: scale(0.97);
-      opacity: 0.9;
-      transition: transform 0.1s ease;
+      transform: scale(0.98);
+      opacity: 0.95;
+    }
+    .list-row-tap {
+      transition: all 0.15s ease;
+    }
+    .list-row-tap:hover {
+      background-color: #f8fafc !important;
     }
     .list-row-tap:active {
       background-color: #f1f5f9 !important;
@@ -44,171 +60,215 @@ export default function GuardProfilePage() {
 
   return (
     <div style={{ 
-      backgroundColor: "#f8fafc", 
-      height: "100vh", 
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      backgroundColor: "#f4f6f9", 
+      minHeight: "100vh", 
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       WebkitUserSelect: "none",
       userSelect: "none",
       display: "flex",
       flexDirection: "column",
-      overflow: "hidden"
+      alignItems: "center"
     }}>
       <style>{nativeTapStyle}</style>
 
-      {/* Native App Top Header Block */}
-      <header style={{ 
-        display: "flex", 
-        justifyContent: "center", 
-        alignItems: "center",
+      {/* Main View Shell Layer (Restricts desktop blow-out while scaling seamlessly on mobile) */}
+      <div style={{
+        width: "100%",
+        maxWidth: "480px",
         backgroundColor: "#ffffff",
-        padding: "1rem 1.25rem",
-        borderBottom: "1px solid #f1f5f9",
-        flexShrink: 0
-      }}>
-        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "#0f172a" }}>My Profile</h2>
-      </header>
-
-      {/* Main Container Layout */}
-      <main style={{ 
-        padding: "1.25rem 1.25rem 2rem 1.25rem", 
-        display: "flex", 
-        flexDirection: "column", 
-        justifyContent: "space-between", 
-        flexGrow: 1 
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        boxShadow: "0 0 24px rgba(15, 23, 42, 0.03)",
+        borderLeft: "1px solid #eef2f6",
+        borderRight: "1px solid #eef2f6"
       }}>
         
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {/* Identity Info Card */}
-          <section style={{ 
-            display: "flex", 
-            alignItems: "center", 
-            gap: "1rem",
-            padding: "1rem 0"
-          }}>
-            <div style={{ 
-              width: "4rem", 
-              height: "4rem", 
-              borderRadius: "50%", 
-              background: "#2563eb", 
-              display: "grid", 
-              placeItems: "center",
-              boxShadow: "0 4px 12px rgba(37, 99, 235, 0.2)"
+        {/* Native App Top Header Block */}
+        <header style={{ 
+          display: "flex", 
+          justifyContent: "center", 
+          alignItems: "center",
+          backgroundColor: "#ffffff",
+          padding: "1.25rem 1.5rem",
+          borderBottom: "1px solid #f1f5f9",
+          position: "sticky",
+          top: 0,
+          zIndex: 50
+        }}>
+          <h2 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700, color: "#0f172a", letterSpacing: "-0.01em" }}>Account Profile</h2>
+        </header>
+
+        {/* Main Workspace Scroll Body Container */}
+        <main style={{ 
+          padding: "1.5rem", 
+          display: "flex", 
+          flexDirection: "column", 
+          justifyContent: "space-between", 
+          flexGrow: 1
+        }}>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+            {/* Identity Hero Profile Badge Header Card */}
+            <section style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "1.25rem",
+              padding: "0.25rem 0"
             }}>
-              <FiUser size={32} color="#ffffff" />
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 700, color: "#0f172a" }}>{fullName}</h3>
-              <span style={{ fontSize: "0.85rem", color: "#64748b", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.025em" }}>
-                {user?.role || "Security Personnel"}
+              <div style={{ 
+                width: "4.25rem", 
+                height: "4.25rem", 
+                borderRadius: "1.25rem", 
+                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", 
+                display: "grid", 
+                placeItems: "center",
+                boxShadow: "0 8px 20px rgba(37, 99, 235, 0.15)",
+                color: "#ffffff",
+                fontSize: "1.4rem",
+                fontWeight: 700,
+                letterSpacing: "0.05em"
+              }}>
+                {initials}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+                <h3 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em" }}>{fullName}</h3>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                  <span style={{ 
+                    fontSize: "0.75rem", 
+                    color: "#2563eb", 
+                    backgroundColor: "#eff6ff", 
+                    padding: "0.15rem 0.5rem", 
+                    borderRadius: "0.375rem", 
+                    fontWeight: 600, 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.025em" 
+                  }}>
+                    {user?.role || "Active Personnel"}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* Core Credentials Context Group Data Grid Container */}
+            <section style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ margin: "0 0 0.15rem 0.25rem", fontSize: "0.75rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Deployment Context
               </span>
-            </div>
-          </section>
+              <div style={{ 
+                backgroundColor: "#ffffff", 
+                borderRadius: "1rem", 
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 4px 12px rgba(15, 23, 42, 0.015)",
+                overflow: "hidden"
+              }}>
+                {/* Row 1: Email Profile Metadata Anchor */}
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem 1.25rem", borderBottom: "1px solid #f1f5f9" }}>
+                  <div style={{ width: "2rem", height: "2rem", borderRadius: "0.5rem", backgroundColor: "#f8fafc", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                    <FiMail size={16} color="#64748b" />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem" }}>
+                    <span style={{ fontSize: "0.65rem", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.025em" }}>Email Address</span>
+                    <span style={{ fontSize: "0.95rem", color: "#334155", fontWeight: 600 }}>{user?.email || "No email linked"}</span>
+                  </div>
+                </div>
 
-          {/* Core Credentials Group Block */}
-          <section style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-            <span style={{ margin: "0 0 0.15rem 0.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Employment Context
-            </span>
-            <div style={{ 
-              backgroundColor: "#ffffff", 
-              borderRadius: "0.85rem", 
-              border: "1px solid #e2e8f0",
-              overflow: "hidden"
-            }}>
-              {/* Row 1: Email */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", padding: "0.85rem 1rem", borderBottom: "1px solid #f1f5f9" }}>
-                <FiMail size={18} color="#64748b" style={{ flexShrink: 0 }} />
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase" }}>Email Node</span>
-                  <span style={{ fontSize: "0.95rem", color: "#334155", fontWeight: 500 }}>{user?.email || "No email linked"}</span>
+                {/* Row 2: Authority Level */}
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem 1.25rem", borderBottom: "1px solid #f1f5f9" }}>
+                  <div style={{ width: "2rem", height: "2rem", borderRadius: "0.5rem", backgroundColor: "#f8fafc", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                    <FiShield size={16} color="#64748b" />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem" }}>
+                    <span style={{ fontSize: "0.65rem", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.025em" }}>Security Designation</span>
+                    <span style={{ fontSize: "0.95rem", color: "#334155", fontWeight: 600, textTransform: "capitalize" }}>{user?.role || "General Guard"}</span>
+                  </div>
+                </div>
+
+                {/* Row 3: Deployment Station Assignment Field */}
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem 1.25rem" }}>
+                  <div style={{ width: "2rem", height: "2rem", borderRadius: "0.5rem", backgroundColor: "#f8fafc", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                    <FiMapPin size={16} color="#64748b" />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.1rem" }}>
+                    <span style={{ fontSize: "0.65rem", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.025em" }}>Assigned Station</span>
+                    <span style={{ fontSize: "0.95rem", color: "#334155", fontWeight: 600 }}>{user?.company ? `Company ${user.company}` : "Mombasa Headquarters"}</span>
+                  </div>
                 </div>
               </div>
+            </section>
 
-              {/* Row 2: Authority level */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", padding: "0.85rem 1rem", borderBottom: "1px solid #f1f5f9" }}>
-                <FiShield size={18} color="#64748b" style={{ flexShrink: 0 }} />
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase" }}>Clearance Rank</span>
-                  <span style={{ fontSize: "0.95rem", color: "#334155", fontWeight: 500, textTransform: "capitalize" }}>{user?.role || "General Guard"}</span>
+            {/* Action Group Interaction Block */}
+            <section style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ margin: "0 0 0.15rem 0.25rem", fontSize: "0.75rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Quick Utilities
+              </span>
+              <div style={{ 
+                backgroundColor: "#ffffff", 
+                borderRadius: "1rem", 
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 4px 12px rgba(15, 23, 42, 0.015)",
+                overflow: "hidden"
+              }}>
+                <div 
+                  onClick={() => navigate("/guard/analytics")}
+                  className="list-row-tap"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                    <div style={{ width: "2rem", height: "2rem", borderRadius: "0.5rem", backgroundColor: "#f0fdf4", display: "grid", placeItems: "center" }}>
+                      <FiFileText size={16} color="#16a34a" />
+                    </div>
+                    <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "#1e293b" }}>View Shift Log Records</span>
+                  </div>
+                  <FiChevronRight size={18} color="#94a3b8" />
+                </div>
+
+                <div 
+                  onClick={() => navigate("/guard/incidents")}
+                  className="list-row-tap"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", cursor: "pointer" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                    <div style={{ width: "2rem", height: "2rem", borderRadius: "0.5rem", backgroundColor: "#fff7ed", display: "grid", placeItems: "center" }}>
+                      <FiAlertCircle size={16} color="#ea580c" />
+                    </div>
+                    <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "#1e293b" }}>Report Infrastructure Issue</span>
+                  </div>
+                  <FiChevronRight size={18} color="#94a3b8" />
                 </div>
               </div>
+            </section>
+          </div>
 
-              {/* Row 3: Deployment Station */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", padding: "0.85rem 1rem" }}>
-                <FiMapPin size={18} color="#64748b" style={{ flexShrink: 0 }} />
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase" }}>Assigned Station</span>
-                  <span style={{ fontSize: "0.95rem", color: "#334155", fontWeight: 500 }}>{user?.company ? `Company ${user.company}` : "Mombasa Headquarters"}</span>
-                </div>
-              </div>
-            </div>
-          </section>
+          {/* Unified Clean Destructive Trigger Area */}
+          <div style={{ marginTop: "2.5rem" }}>
+            <button
+              onClick={handleLogout}
+              className="btn-tap-effect"
+              style={{
+                width: "100%",
+                padding: "1rem",
+                borderRadius: "1rem",
+                border: "1px solid #fca5a5",
+                background: "#fff5f5",
+                color: "#dc2626",
+                fontWeight: 700,
+                fontSize: "0.95rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                boxShadow: "0 4px 12px rgba(220, 38, 38, 0.03)"
+              }}
+            >
+              <FiLogOut size={16} />
+              Log Out Session
+            </button>
+          </div>
 
-          {/* Action List Group Block */}
-          <section style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-            <span style={{ margin: "0 0 0.15rem 0.25rem", fontSize: "0.8rem", fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Quick Utilities
-            </span>
-            <div style={{ 
-              backgroundColor: "#ffffff", 
-              borderRadius: "0.85rem", 
-              border: "1px solid #e2e8f0",
-              overflow: "hidden"
-            }}>
-              <div 
-                onClick={() => navigate("/guard/analytics")}
-                className="list-row-tap"
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", borderBottom: "1px solid #f1f5f9", cursor: "pointer", transition: "background-color 0.1s" }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                  <FiFileText size={18} color="#0f172a" />
-                  <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "#0f172a" }}>View Shift Log Records</span>
-                </div>
-                <FiChevronRight size={18} color="#cbd5e1" />
-              </div>
-
-              <div 
-                onClick={() => navigate("/guard/incidents")}
-                className="list-row-tap"
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem", cursor: "pointer", transition: "background-color 0.1s" }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                  <FiAlertCircle size={18} color="#0f172a" />
-                  <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "#0f172a" }}>Report Infrastructure Issue</span>
-                </div>
-                <FiChevronRight size={18} color="#cbd5e1" />
-              </div>
-            </div>
-          </section>
-        </div>
-
-        {/* Unified Native Trigger Session Actions Area */}
-        <div>
-          <button
-            onClick={handleLogout}
-            className="btn-tap-effect"
-            style={{
-              width: "100%",
-              padding: "1rem",
-              borderRadius: "0.85rem",
-              border: "none",
-              background: "#fee2e2",
-              color: "#dc2626",
-              fontWeight: 700,
-              fontSize: "1rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem"
-            }}
-          >
-            <FiLogOut size={18} />
-            Log Out Session
-          </button>
-        </div>
-
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

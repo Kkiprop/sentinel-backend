@@ -196,7 +196,7 @@ export default function GuardShiftsPage() {
   return (
     <div style={{ 
       backgroundColor: "#f8fafc", 
-      height: "100vh", 
+      minHeight: "100%", 
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       display: "flex",
       flexDirection: "column",

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Sentinel Synapse icon">
+  <rect width="512" height="512" rx="120" fill="#0f172a"/>
+  <path d="M278 469c-8 10-30 5-30-8V348c0-14-11-25-25-25H99c-14 0-22-15-14-27l82-114c12-16 0-38-20-38H34c-14 0-22-16-14-28L127 31c3-4 9-7 14-7h231c14 0 22 16 14 28l-82 114c-12 16 0 39 20 39h125c14 0 23 17 14 29L278 469z" fill="#38bdf8"/>
+  <circle cx="164" cy="126" r="38" fill="#f8fafc" opacity="0.92"/>
+</svg>

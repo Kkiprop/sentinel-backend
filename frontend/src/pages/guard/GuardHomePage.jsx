@@ -1,13 +1,11 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
-  FiBell, 
   FiShield, 
   FiMaximize, 
   FiAlertTriangle, 
-  FiBarChart2, 
+  FiCalendar,
   FiLogOut,
-  FiUser,
   FiPlay
 } from "react-icons/fi";
 import { useAuth } from "../../contexts/AuthContext.jsx";
@@ -15,10 +13,10 @@ import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
 
 const QUICK_ACTIONS = [
-  { key: "scan", label: "Scan Checkpoint", icon: <FiMaximize size={22} />, color: "#2563eb" },
-  { key: "report", label: "Report Incident", icon: <FiAlertTriangle size={22} />, color: "#ea580c" },
-  { key: "analytics", label: "My Shift Analytics", icon: <FiBarChart2 size={22} />, color: "#059669" },
-  { key: "end", label: "End Shift", icon: <FiLogOut size={22} />, color: "#dc2626" },
+  { key: "scan", label: "Scan Checkpoint", icon: <FiMaximize size={20} />, color: "#2563eb" },
+  { key: "report", label: "Report Incident", icon: <FiAlertTriangle size={20} />, color: "#ea580c" },
+  { key: "myShift", label: "My Shift", icon: <FiCalendar size={20} />, color: "#059669" },
+  { key: "end", label: "End Shift", icon: <FiLogOut size={20} />, color: "#dc2626" },
 ];
 
 export default function GuardHomePage() {
@@ -30,11 +28,22 @@ export default function GuardHomePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [activeShift, setActiveShift] = useState(false);
+  
+  // State to track SOS long-press progress
+  const [sosProgress, setSosProgress] = useState(0);
+  const sosTimerRef = useRef(null);
+  const sosIntervalRef = useRef(null);
 
   const displayName = useMemo(() => {
     if (!user?.email) return "admin Dakada";
     return user.email.split("@")[0];
   }, [user]);
+
+  const triggerHaptic = (duration = 50) => {
+    if (navigator.vibrate) {
+      navigator.vibrate(duration);
+    }
+  };
 
   const loadSites = async () => {
     try {
@@ -88,13 +97,14 @@ export default function GuardHomePage() {
   const startShift = async () => {
     if (!sites.length) {
       setMessage("");
-      setError("No assigned site available for starting a shift.");
+      setError("No assigned site available.");
       return;
     }
 
     setBusy(true);
     setError("");
     setMessage("");
+    triggerHaptic(100);
 
     try {
       const { latitude, longitude } = await getLocation();
@@ -123,6 +133,7 @@ export default function GuardHomePage() {
     setBusy(true);
     setError("");
     setMessage("");
+    triggerHaptic(100);
 
     try {
       const { latitude, longitude } = await getLocation();
@@ -143,6 +154,7 @@ export default function GuardHomePage() {
     setBusy(true);
     setError("");
     setMessage("");
+    triggerHaptic([200, 100, 200]); // Distinct SOS vibration pattern
 
     try {
       const { latitude, longitude } = await getLocation();
@@ -162,7 +174,32 @@ export default function GuardHomePage() {
     }
   };
 
+  // Safe SOS Press handlers to avoid accidental triggers
+  const handleSosPressStart = (e) => {
+    if (busy || !activeShift) return;
+    e.preventDefault();
+    triggerHaptic(30);
+
+    sosTimerRef.current = setTimeout(() => {
+      clearInterval(sosIntervalRef.current);
+      setSosProgress(100);
+      sendSOS();
+    }, 1500); // 1.5 seconds hold required
+
+    sosIntervalRef.current = setInterval(() => {
+      setSosProgress((prev) => Math.min(prev + (100 / 15), 100));
+    }, 100);
+  };
+
+  const handleSosPressEnd = () => {
+    clearTimeout(sosTimerRef.current);
+    clearInterval(sosIntervalRef.current);
+    setSosProgress(0);
+  };
+
   const handleQuickAction = (key) => {
+    triggerHaptic(40);
+    
     if (key === "scan") {
       if (!activeShift) return;
       navigate("/guard/checkpoints");
@@ -175,15 +212,8 @@ export default function GuardHomePage() {
       return;
     }
 
-    if (key === "analytics") {
-      navigate("/guard/analytics");
-      return;
-    }
-
-    if (key === "start") {
-      if (!activeShift) {
-        startShift();
-      }
+    if (key === "myShift") {
+      navigate("/guard/my-shift");
       return;
     }
 
@@ -194,182 +224,265 @@ export default function GuardHomePage() {
     }
   };
 
-  const nativeTapStyle = `
-    .btn-tap-effect:active {
-      transform: scale(0.96);
-      opacity: 0.9;
-      transition: transform 0.1s ease;
-    }
-  `;
-
   return (
-    <div style={{ 
-      backgroundColor: "#f8fafc", 
-      height: "100vh", 
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-      WebkitUserSelect: "none",
-      userSelect: "none",
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden" // Prevents the screen from scrolling entirely
-    }}>
-      <style>{nativeTapStyle}</style>
+    <div
+      style={{
+        background: "#f8fafc",
+        minHeight: "100%",
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        WebkitUserSelect: "none",
+        userSelect: "none",
+        overflow: "visible",
+      }}
+    >
+      <style>{`
+        .btn-tap-effect:active {
+          transform: scale(0.96);
+          transition: all .1s ease;
+        }
+        .sos-active-pulse {
+          animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+          0% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
+          70% { box-shadow: 0 0 0 15px rgba(220,38,38,0); }
+          100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+        }
+      `}</style>
 
-      {/* Clean Native Top Navbar */}
-      <header style={{ 
-        display: "flex", 
-        justifyContent: "space-between", 
-        alignItems: "center",
-        backgroundColor: "#ffffff",
-        padding: "0.85rem 1.25rem",
-        borderBottom: "1px solid #f1f5f9",
-        flexShrink: 0
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div style={{ width: "2.25rem", height: "2.25rem", borderRadius: "50%", background: "#cbd5e1", display: "grid", placeItems: "center", overflow: "hidden" }}>
-            <FiUser size={20} color="#64748b" />
-          </div>
+      <main
+        style={{
+          maxWidth: "480px",
+          minHeight: "100%",
+          margin: "0 auto",
+          padding: "1.25rem 1rem 5.5rem",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between", // Dynamic spacing redistribution
+          gap: "1rem",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Header Section */}
+        <section style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0f172a", lineHeight: 1.2 }}>Guard tour</h2>
-            <span style={{ fontSize: "0.75rem", color: "#64748b", display: "block" }}>User @{displayName}</span>
+            <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800, color: "#0f172a" }}>
+              Hi, {displayName}
+            </h1>
+            <p style={{ margin: "0.15rem 0 0 0", color: "#64748b", fontSize: "0.85rem" }}>
+              Mombasa Cement
+            </p>
           </div>
-        </div>
-        <button 
-          className="btn-tap-effect"
-          style={{ 
-            border: "none",
-            background: "none", 
-            cursor: "pointer",
-            padding: "0.25rem"
+          <div
+            style={{
+              padding: "0.35rem 0.75rem",
+              borderRadius: "999px",
+              background: activeShift ? "#dcfce7" : "#fef3c7",
+              color: activeShift ? "#166534" : "#92400e",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.25rem"
+            }}
+          >
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: activeShift ? "#166534" : "#92400e" }}></span>
+            {activeShift ? "Shift Active" : "Shift Inactive"}
+          </div>
+        </section>
+
+        {/* Feedback Messages (Absolute overlay wrapper to preserve flex layout proportions) */}
+        {(error || message) && (
+          <div style={{ position: "relative", zIndex: 10 }}>
+            {error && (
+              <div style={{ padding: "0.75rem", borderRadius: "0.75rem", background: "#fef2f2", color: "#dc2626", fontSize: "0.85rem", fontWeight: 500 }}>
+                {error}
+              </div>
+            )}
+            {message && (
+              <div style={{ padding: "0.75rem", borderRadius: "0.75rem", background: "#f0fdf4", color: "#16a34a", fontSize: "0.85rem", fontWeight: 500 }}>
+                {message}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Shift Control Box */}
+        {!activeShift && (
+          <section
+            style={{
+              background: "#fff",
+              borderRadius: "1rem",
+              padding: "1rem",
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 4px 12px rgba(15,23,42,0.03)",
+            }}
+          >
+            <button
+              onClick={() => startShift()}
+              disabled={busy}
+              className="btn-tap-effect"
+              style={{
+                width: "100%",
+                border: "none",
+                borderRadius: "0.75rem",
+                padding: "0.85rem",
+                background: busy ? "#93c5fd" : "#2563eb",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "0.95rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+              }}
+            >
+              <FiPlay />
+              {busy ? "Starting..." : "Clock In / Start Shift"}
+            </button>
+          </section>
+        )}
+
+        {/* Centerpiece SOS Section */}
+        <section
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "0.75rem",
           }}
         >
-          <FiBell size={20} color="#64748b" />
-        </button>
-      </header>
-
-      {/* Main Container - Compact and proportionally sized to fit inside 100vh */}
-      <main style={{ 
-        padding: "1rem 1.25rem", 
-        display: "flex", 
-        flexDirection: "column", 
-        justifyContent: "space-between", 
-        flexGrow: 1 
-      }}>
-        
-        {/* Assignment & Start Shift Card */}
-        <section style={{ 
-          padding: "1rem 1.25rem", 
-          borderRadius: "1rem", 
-          background: "#ffffff", 
-          boxShadow: "0 4px 18px rgba(15, 23, 42, 0.04)",
-          border: "1px solid #f1f5f9"
-        }}>
-          {error ? (
-            <p style={{ margin: 0, color: "#dc2626", fontSize: "0.9rem", marginBottom: "0.8rem" }}>{error}</p>
-          ) : null}
-          {message ? (
-            <p style={{ margin: 0, color: "#16a34a", fontSize: "0.9rem", marginBottom: "0.8rem" }}>{message}</p>
-          ) : null}
-          <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700, color: "#0f172a" }}>Mombasa Cement</h3>
-          <span style={{ color: "#94a3b8", fontSize: "0.8rem", display: "block", marginBottom: "0.85rem" }}>Current Assignment</span>
-
-          <button
-            onClick={() => handleQuickAction("start")}
-            disabled={busy || activeShift}
-            className="btn-tap-effect"
+          <div
             style={{
-              width: "100%",
-              padding: "0.75rem",
-              borderRadius: "0.5rem",
-              border: "none",
-              background: activeShift ? "#94a3b8" : busy ? "#93c5fd" : "#2563eb",
-              color: "#ffffff",
-              fontWeight: 600,
-              fontSize: "0.95rem",
-              cursor: activeShift || busy ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem"
-            }}
-          >
-            <FiPlay size={14} style={{ fill: "currentColor" }} />
-            {busy ? "Working…" : "Start Shift"}
-          </button>
-        </section>
-
-        {/* Central Circular SOS Target Element */}
-        <section style={{ display: "flex", justifyContent: "center", alignItems: "center", flexGrow: 1 }}>
-          <button
-            onClick={sendSOS}
-            disabled={busy || !activeShift}
-            className="btn-tap-effect"
-            style={{
-              width: "7.5rem",
-              height: "7.5rem",
+              position: "relative",
+              width: "10.5rem",
+              height: "10.5rem",
               borderRadius: "50%",
-              border: "none",
-              background: busy || !activeShift ? "#fca5a5" : "#dc2626",
-              color: "#ffffff",
+              background: "rgba(220,38,38,.05)",
               display: "flex",
-              flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 8px 20px rgba(220, 38, 38, 0.25)",
-              cursor: busy || !activeShift ? "not-allowed" : "pointer",
-              position: "relative"
             }}
           >
-            <FiShield size={24} style={{ marginBottom: "0.15rem" }} />
-            <span style={{ fontSize: "1.35rem", fontWeight: 800, letterSpacing: "0.05em", lineHeight: 1 }}>{busy ? "Sending" : "SOS"}</span>
-            <span style={{ 
-              fontSize: "0.5rem", 
-              opacity: 0.85, 
-              textTransform: "uppercase", 
-              letterSpacing: "0.05em",
-              position: "absolute",
-              bottom: "1rem"
-            }}>
-            </span>
-          </button>
+            {/* Circular Progress Border */}
+            <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", transform: "rotate(-90deg)" }}>
+              <circle
+                cx="5.25rem"
+                cy="5.25rem"
+                r="4.9rem"
+                fill="transparent"
+                stroke={activeShift ? "rgba(220,38,38,0.15)" : "#e2e8f0"}
+                strokeWidth="5"
+              />
+              <circle
+                cx="5.25rem"
+                cy="5.25rem"
+                r="4.9rem"
+                fill="transparent"
+                stroke="#dc2626"
+                strokeWidth="5"
+                strokeDasharray={2 * Math.PI * 78} 
+                strokeDashoffset={2 * Math.PI * 78 * (1 - sosProgress / 100)}
+                strokeLinecap="round"
+                style={{ transition: "stroke-dashoffset 0.1s linear" }}
+              />
+            </svg>
+
+            <button
+              onMouseDown={handleSosPressStart}
+              onMouseUp={handleSosPressEnd}
+              onMouseLeave={handleSosPressEnd}
+              onTouchStart={handleSosPressStart}
+              onTouchEnd={handleSosPressEnd}
+              disabled={busy || !activeShift}
+              className={`btn-tap-effect ${activeShift && !busy ? "sos-active-pulse" : ""}`}
+              style={{
+                width: "8.5rem",
+                height: "8.5rem",
+                borderRadius: "50%",
+                border: "none",
+                background: busy || !activeShift ? "#cbd5e1" : "#dc2626",
+                color: "#fff",
+                cursor: busy || !activeShift ? "not-allowed" : "pointer",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: activeShift ? "0 12px 28px rgba(220,38,38,.25)" : "none",
+                zIndex: 2,
+              }}
+            >
+              <FiShield size={32} />
+              <div style={{ marginTop: "0.25rem", fontSize: "1.75rem", fontWeight: 900, letterSpacing: ".02em" }}>
+                {busy ? "..." : "SOS"}
+              </div>
+              <div style={{ fontSize: "0.55rem", opacity: 0.85, fontWeight: 600, marginTop: "0.15rem" }}>
+                {activeShift ? "HOLD TO TRIGGER" : "SHIFT INACTIVE"}
+              </div>
+            </button>
+          </div>
         </section>
 
-        {/* 2x2 Patrol Utility Block Section */}
-        <section style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          
-          <div style={{ 
-            display: "grid", 
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))", 
-            gap: "0.75rem" 
-          }}>
+        {/* Unified Operations Quick Actions Grid */}
+        <section>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, 1fr)",
+              gap: "0.75rem",
+            }}
+          >
             {QUICK_ACTIONS.map((item) => {
-              const isDisabled = busy && (item.key === "start" || item.key === "end") || (!activeShift && item.key !== "analytics");
+              const isDisabled = !activeShift && item.key !== "analytics";
+
               return (
-                <button 
+                <button
                   key={item.key}
                   onClick={() => handleQuickAction(item.key)}
                   disabled={isDisabled}
                   className="btn-tap-effect"
                   style={{
+                    background: "#fff",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "0.85rem",
+                    padding: "0.95rem 0.5rem",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "0.5rem",
-                    padding: "1rem 0.75rem",
+                    boxShadow: "0 4px 12px rgba(15,23,42,.02)",
                     cursor: isDisabled ? "not-allowed" : "pointer",
-                    backgroundColor: isDisabled ? "#f1f5f9" : "#ffffff",
-                    color: isDisabled ? "#94a3b8" : "#0f172a",
-                    border: "none",
-                    borderRadius: "0.75rem",
-                    boxShadow: "0 4px 12px rgba(15, 23, 42, 0.03)",
-                    textAlign: "center"
+                    opacity: isDisabled ? 0.45 : 1,
                   }}
                 >
-                  <div style={{ color: item.color, display: "flex", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "2.6rem",
+                      height: "2.6rem",
+                      borderRadius: "0.65rem",
+                      background: `${item.color}12`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: item.color,
+                    }}
+                  >
                     {item.icon}
                   </div>
-                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#0f172a", lineHeight: 1.2 }}>
+
+                  <span
+                    style={{
+                      fontSize: "0.825rem",
+                      fontWeight: 700,
+                      color: "#1e293b",
+                      textAlign: "center",
+                      lineHeight: 1.2,
+                    }}
+                  >
                     {item.label}
                   </span>
                 </button>
@@ -377,7 +490,6 @@ export default function GuardHomePage() {
             })}
           </div>
         </section>
-        
       </main>
     </div>
   );

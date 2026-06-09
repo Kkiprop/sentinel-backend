@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiChevronLeft, FiMaximize, FiLoader, FiCheckCircle, FiAlertTriangle, FiEdit3, FiX } from "react-icons/fi";
+import { FiChevronLeft, FiMaximize, FiLoader, FiCheckCircle, FiAlertTriangle, FiEdit3, FiX, FiCamera } from "react-icons/fi";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
+import jsQR from "jsqr";
 
 function getLocation() {
   return new Promise((resolve, reject) => {
@@ -30,6 +31,12 @@ export default function CheckpointsPage() {
   const [status, setStatus] = useState(null); // { type: 'success' | 'error', message: string }
   const [busy, setBusy] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
+  const [cameraAvailable, setCameraAvailable] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [scannerMessage, setScannerMessage] = useState("");
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
 
   const handleScanSubmit = async (qrValue) => {
     if (!qrValue) return;
@@ -48,17 +55,17 @@ export default function CheckpointsPage() {
 
       const response = await api.post(endpoints.patrols.scan, scan);
       
-      if (response.data.success) {
+      if (response.data?.success) {
         setStatus({
           type: "success",
-          message: `Checkpoint logged successfully. Valid: ${response.data.is_valid}`
+          message: "Checkpoint logged successfully."
         });
         setCheckpointQr("");
         setShowManualInput(false);
       } else {
         setStatus({
           type: "error",
-          message: `Scan failed: ${response.data.error || "Unknown validation error"}`
+          message: `Scan failed: ${response.data?.error || "Unknown validation error"}`
         });
       }
     } catch (error) {
@@ -68,12 +75,114 @@ export default function CheckpointsPage() {
       });
     } finally {
       setBusy(false);
+      setScannerMessage("");
     }
   };
 
   const handleFormSubmit = (event) => {
     event.preventDefault();
     handleScanSubmit(checkpointQr);
+  };
+
+  const startCamera = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraAvailable(false);
+      setCameraError("Camera access is not available in this browser.");
+      return;
+    }
+
+    const tryConstraints = [{ video: { facingMode: { ideal: "environment" } } }, { video: true }];
+    let stream = null;
+    let lastError = null;
+
+    for (const constraints of tryConstraints) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (!stream) {
+      setCameraAvailable(false);
+      setCameraError(
+        lastError?.message || "Unable to access camera. Please allow camera permissions or use manual entry."
+      );
+      return;
+    }
+
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.muted = true;
+      videoRef.current.playsInline = true;
+      videoRef.current.autoplay = true;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play().catch(() => {
+        // Some mobile browsers may delay autoplay until user interacts.
+      });
+    }
+    setCameraAvailable(true);
+    setCameraError("");
+  };
+
+  useEffect(() => {
+    startCamera();
+    return () => {
+      const tracks = streamRef.current?.getTracks() || [];
+      tracks.forEach((track) => track.stop());
+    };
+  }, []);
+
+  const captureFromCamera = async () => {
+    if (!videoRef.current || !canvasRef.current) {
+      setStatus({ type: "error", message: "Camera is not ready. Please refresh or try manual entry." });
+      return;
+    }
+    setBusy(true);
+    setStatus(null);
+    setScannerMessage("Scanning for QR code...");
+
+    try {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      let qrValue = null;
+
+      if (window.BarcodeDetector) {
+        try {
+          const formats = await window.BarcodeDetector.getSupportedFormats();
+          const detector = new window.BarcodeDetector({ formats });
+          const barcodes = await detector.detect(canvas);
+          qrValue = barcodes?.[0]?.rawValue || null;
+        } catch (error) {
+          // Fall back to jsQR if browser BarcodeDetector cannot decode.
+          qrValue = null;
+        }
+      }
+
+      if (!qrValue) {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const qrResult = jsQR(imageData.data, canvas.width, canvas.height);
+        qrValue = qrResult?.data || null;
+      }
+
+      if (qrValue) {
+        await handleScanSubmit(qrValue);
+        return;
+      }
+
+      setStatus({ type: "error", message: "No QR code detected. Please align the checkpoint tag and try again." });
+    } catch (error) {
+      setStatus({ type: "error", message: error?.message || "Unable to read QR code from camera." });
+    } finally {
+      setBusy(false);
+      setScannerMessage("");
+    }
   };
 
   const nativeTapStyle = `
@@ -94,7 +203,7 @@ export default function CheckpointsPage() {
   return (
     <div style={{ 
       backgroundColor: "#0f172a", // Darker premium aesthetic for camera utility views
-      height: "100vh", 
+      minHeight: "100%", 
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       WebkitUserSelect: "none",
       userSelect: "none",
@@ -154,82 +263,100 @@ export default function CheckpointsPage() {
           </p>
         </div>
 
-        {/* Viewfinder Target Container */}
-        <div style={{ 
-          display: "flex", 
-          justifyContent: "center", 
-          alignItems: "center", 
+        <div style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
           flexGrow: 1,
           margin: "1.5rem 0"
         }}>
           <div style={{
-            width: "14rem",
-            height: "14rem",
-            borderRadius: "1.5rem",
-            border: "2px dashed #3b82f6",
+            width: "100%",
+            height: "260px",
+            maxWidth: "100%",
+            borderRadius: "1.25rem",
+            overflow: "hidden",
             position: "relative",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(30, 41, 59, 0.5)",
-            boxShadow: "0 0 40px rgba(0,0,0,0.5)"
+            backgroundColor: "#111827",
+            boxShadow: "0 16px 40px rgba(0, 0, 0, 0.2)"
           }}>
-            {busy ? (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
-                <FiLoader size={36} color="#3b82f6" className="scanner-laser" style={{ animation: "spin 2s linear infinite" }} />
-                <span style={{ color: "#3b82f6", fontSize: "0.85rem", fontWeight: 600 }}>Verifying GPS...</span>
-              </div>
+            {cameraAvailable ? (
+              <>
+                <video
+                  ref={videoRef}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  muted
+                  playsInline
+                  autoPlay
+                />
+                <canvas ref={canvasRef} style={{ display: "none" }} aria-hidden="true" />
+              </>
             ) : (
-              <FiMaximize size={54} color="#64748b" className="scanner-laser" />
+              <div style={{ padding: "1.25rem", textAlign: "center" }}>
+                <p style={{ color: "#f8fafc", fontSize: "1rem", marginBottom: "0.5rem" }}>Camera unavailable</p>
+                <p style={{ color: "#94a3b8", fontSize: "0.85rem" }}>{cameraError || "Please allow camera permissions or use manual entry."}</p>
+              </div>
             )}
-            
-            {/* Corner Decorative Framing brackets */}
-            <div style={{ position: "absolute", top: "1rem", left: "1rem", width: "1.5rem", height: "1.5rem", borderTop: "4px solid #3b82f6", borderLeft: "4px solid #3b82f6", borderRadius: "4px 0 0 0" }} />
-            <div style={{ position: "absolute", top: "1rem", right: "1rem", width: "1.5rem", height: "1.5rem", borderTop: "4px solid #3b82f6", borderRight: "4px solid #3b82f6", borderRadius: "0 4px 0 0" }} />
-            <div style={{ position: "absolute", bottom: "1rem", left: "1rem", width: "1.5rem", height: "1.5rem", borderBottom: "4px solid #3b82f6", borderLeft: "4px solid #3b82f6", borderRadius: "0 0 0 4px" }} />
-            <div style={{ position: "absolute", bottom: "1rem", right: "1rem", width: "1.5rem", height: "1.5rem", borderBottom: "4px solid #3b82f6", borderRight: "4px solid #3b82f6", borderRadius: "0 0 4px 0" }} />
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", border: "2px solid rgba(59, 130, 246, 0.6)", boxShadow: "0 0 0 9999px rgba(15,23,42,0.24) inset", borderRadius: "1.25rem" }} />
+            <div style={{ position: "absolute", inset: "1rem", borderRadius: "1.25rem", boxSizing: "border-box", border: "2px dashed rgba(255,255,255,0.22)" }} />
           </div>
         </div>
 
-        {/* Dynamic Scan Feedback Panel Stack */}
+        {scannerMessage ? (
+          <div style={{ padding: "0.95rem 1rem", borderRadius: "0.75rem", backgroundColor: "#1e293b", color: "#f8fafc", fontSize: "0.9rem", marginBottom: "0.75rem" }}>
+            {scannerMessage}
+          </div>
+        ) : null}
+
         {status && (
           <div style={{
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: "center",
             gap: "0.75rem",
             padding: "1rem",
             borderRadius: "0.75rem",
             backgroundColor: status.type === "success" ? "#065f46" : "#991b1b",
             color: "#ffffff",
-            fontSize: "0.875rem",
-            lineHeight: 1.4,
-            marginBottom: "1rem",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+            fontSize: "0.9rem",
+            marginBottom: "0.75rem"
           }}>
-            {status.type === "success" ? (
-              <FiCheckCircle size={20} style={{ flexShrink: 0, marginTop: "0.1rem" }} />
-            ) : (
-              <FiAlertTriangle size={20} style={{ flexShrink: 0, marginTop: "0.1rem" }} />
-            )}
-            <div style={{ flexGrow: 1, fontWeight: 500 }}>{status.message}</div>
-            <button 
-              onClick={() => setStatus(null)}
-              style={{ border: "none", background: "none", color: "#ffffff", cursor: "pointer", opacity: 0.7 }}
-            >
-              <FiX size={16} />
-            </button>
+            {status.type === "success" ? <FiCheckCircle size={18} /> : <FiAlertTriangle size={18} />}
+            <span>{status.message}</span>
           </div>
         )}
 
-        {/* Bottom Bar Actions Grid Controls */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        <div style={{ display: "grid", gap: "0.75rem" }}>
+          <button
+            onClick={captureFromCamera}
+            disabled={busy || !cameraAvailable}
+            className="btn-tap-effect"
+            style={{
+              width: "100%",
+              padding: "1rem",
+              borderRadius: "0.85rem",
+              border: "none",
+              background: cameraAvailable ? "#2563eb" : "#64748b",
+              color: "#ffffff",
+              fontWeight: 700,
+              fontSize: "1rem",
+              cursor: busy || !cameraAvailable ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5rem"
+            }}
+          >
+            <FiCamera size={18} />
+            {busy ? "Scanning..." : "Capture checkpoint QR"}
+          </button>
+
           <button
             onClick={() => setShowManualInput(true)}
             className="btn-tap-effect"
             style={{
               width: "100%",
               padding: "1rem",
-              borderRadius: "0.75rem",
+              borderRadius: "0.85rem",
               border: "1px solid #334155",
               background: "#1e293b",
               color: "#ffffff",
@@ -243,7 +370,7 @@ export default function CheckpointsPage() {
             }}
           >
             <FiEdit3 size={18} />
-            Manual Token Entry
+            Manual token entry
           </button>
         </div>
       </main>

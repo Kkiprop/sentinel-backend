@@ -100,7 +100,7 @@ export default function ManageGuardsPage() {
         {/* Modern Header Row Panel matching brand layout */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1.5rem", borderBottom: "1px solid #f1f5f9", flexWrap: "wrap", gap: "1.25rem" }}>
           <div>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "#0f172a", margin: 0 }}>Manage Guards</h2>
+            <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "#0f172a", margin: 0 }}><FiUser/>  Manage Guards</h2>
             <p style={{ fontSize: "0.875rem", color: "#64748b", marginTop: "0.25rem", margin: 0 }}>Provision company access profiles, authorization metrics, and operation roles.</p>
           </div>
           <button 

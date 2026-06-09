@@ -164,7 +164,8 @@ export default function IncidentsPage() {
   return (
     <div style={{ 
       backgroundColor: "#f1f5f9", 
-      height: "100vh", 
+      minHeight: "100vh", 
+      paddingBottom: "9rem",
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       WebkitUserSelect: "none",
       userSelect: "none",
@@ -214,7 +215,7 @@ export default function IncidentsPage() {
       <div style={{ 
         flexGrow: 1, 
         overflowY: "auto", 
-        padding: "1rem",
+        padding: "1rem 1rem 8.5rem 1rem",
         display: "flex",
         flexDirection: "column",
         gap: "1rem"
@@ -293,10 +294,16 @@ export default function IncidentsPage() {
 
       {/* Persistent Base Shell Menu Bar */}
       <div style={{ 
+        position: "fixed",
+        left: 0,
+        right: 0,
+        bottom: "5rem",
+        zIndex: 20,
         backgroundColor: "#ffffff",
         borderTop: "1px solid #e2e8f0",
         padding: "0.75rem 1rem",
-        flexShrink: 0
+        boxShadow: "0 -10px 30px rgba(15, 23, 42, 0.08)",
+        backdropFilter: "blur(12px)"
       }}>
         
         {/* Horizontal Category Selector list row */}

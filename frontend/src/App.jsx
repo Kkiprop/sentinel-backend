@@ -5,6 +5,7 @@ import GuardShell from "./components/layout/GuardShell.jsx";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/auth/LoginPage";
 import GuardHomePage from "./pages/guard/GuardHomePage";
+import GuardDashboardPage from "./pages/guard/GuardDashboardPage";
 import GuardAnalyticsPage from "./pages/guard/GuardAnalyticsPage";
 import GuardProfilePage from "./pages/guard/GuardProfilePage";
 import ShiftPage from "./pages/guard/ShiftPage";
@@ -48,7 +49,8 @@ function GuardPortal() {
     >
       <Routes>
         <Route index element={<GuardHomePage />} />
-        <Route path="analytics" element={<GuardAnalyticsPage />} />
+        <Route path="analytics" element={<GuardDashboardPage />} />
+        <Route path="my-shift" element={<GuardAnalyticsPage />} />
         <Route path="profile" element={<GuardProfilePage />} />
         <Route path="shift" element={<ShiftPage />} />
         <Route path="checkpoints" element={<CheckpointsPage />} />

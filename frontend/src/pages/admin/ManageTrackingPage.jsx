@@ -1,8 +1,47 @@
 import { useEffect, useRef, useState } from "react";
 import * as L from "leaflet";
+import { FiMap } from "react-icons/fi";
 import "leaflet/dist/leaflet.css";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
+
+// Custom SVG Icon pin generation with explicit dynamic structural name labels
+const createCustomIcon = (color, labelText = "") => {
+  return L.divIcon({
+    html: `
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 32px; height: 32px;">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="${color}" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.3));">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3" fill="#ffffff"></circle>
+        </svg>
+        ${labelText ? `
+          <div style="
+            position: absolute; 
+            top: -16px; 
+            background: ${color}; 
+            color: #ffffff; 
+            font-size: 10px; 
+            font-weight: 700; 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            border: 1px solid #ffffff; 
+            white-space: nowrap; 
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          " title="${labelText}">
+            ${labelText}
+          </div>
+        ` : ""}
+      </div>
+    `,
+    className: "custom-map-marker-pin",
+    iconSize: [32, 42],
+    iconAnchor: [16, 32], 
+    popupAnchor: [0, -32],
+  });
+};
 
 export default function ManageTrackingPage() {
   const [checkpoints, setCheckpoints] = useState([]);
@@ -18,13 +57,12 @@ export default function ManageTrackingPage() {
   const mapRef = useRef(null);
   const markerLayer = useRef(null);
 
-  // Focus utility: Centers map smoothly on clicked checkpoint list item
   const handleFocusCheckpoint = (lat, lng) => {
     if (!mapRef.current || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
     mapRef.current.setView([lat, lng], 16, { animate: true, duration: 1 });
   };
 
-  // 1. Fetch static sites AND base framework checkpoints once on mount
+  // 1. Load foundational items
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -45,7 +83,7 @@ export default function ManageTrackingPage() {
     loadInitialData();
   }, []);
 
-  // 2. Fetch specific filtered site checkpoints when selection changes
+  // 2. Fetch runtime checkpoints on selection filter adjustments
   useEffect(() => {
     let active = true;
     
@@ -75,7 +113,7 @@ export default function ManageTrackingPage() {
     };
   }, [filterSiteId]);
 
-  // 3. Initialize Map Instance
+  // 3. Initialize Leaflet Map Instance
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
@@ -106,7 +144,7 @@ export default function ManageTrackingPage() {
     };
   }, []);
 
-  // 4. Live Multi-Layer Marker Logic (Using Vector Canvas Elements)
+  // 4. Marker Painting Layer Logic
   useEffect(() => {
     if (!mapReady || !mapRef.current || !markerLayer.current) return;
 
@@ -116,7 +154,7 @@ export default function ManageTrackingPage() {
     const bounds = [];
     const invalidItems = [];
 
-    // Layer A: Plot all foundational base framework checkpoints (Grey Vectors)
+    // Layer A: Plot broad infrastructure foundation frames (Muted Grey Icon Marker)
     baseCheckpoints.forEach((checkpoint) => {
       const lat = Number(checkpoint.latitude);
       const lng = Number(checkpoint.longitude);
@@ -133,19 +171,15 @@ export default function ManageTrackingPage() {
       const isFiltered = checkpoints.some(c => String(c.id) === String(checkpoint.id));
       if (isFiltered && filterSiteId) return;
 
-      const baseMarker = L.circleMarker([lat, lng], {
-        radius: 7,
-        fillColor: "#9ca3af", 
-        color: "#4b5563",
-        weight: 1.5,
-        fillOpacity: 0.5
+      const baseMarker = L.marker([lat, lng], {
+        icon: createCustomIcon("#9ca3af")
       });
 
       baseMarker.bindPopup(`<strong>${checkpoint.name} (Global Infrastructure)</strong>`);
       baseMarker.addTo(markerLayer.current);
     });
 
-    // Layer B: Plot active site path highlights (High-contrast Blue Vectors)
+    // Layer B: Plot filtered active route map locations (High-contrast Blue with Checkpoint Name Label)
     if (checkpoints.length > 0) {
       checkpoints.forEach((checkpoint) => {
         const lat = Number(checkpoint.latitude);
@@ -160,12 +194,9 @@ export default function ManageTrackingPage() {
           return;
         }
 
-        const dynamicMarker = L.circleMarker([lat, lng], {
-          radius: 10,
-          fillColor: "#3b82f6", 
-          color: "#1d4ed8",
-          weight: 2,
-          fillOpacity: 0.85,
+        // Swapped `Step ${checkpoint.order}` logic out for structural field name reference
+        const dynamicMarker = L.marker([lat, lng], {
+          icon: createCustomIcon("#2563eb", checkpoint.name)
         });
 
         dynamicMarker.bindPopup(
@@ -204,11 +235,10 @@ export default function ManageTrackingPage() {
     <section className="panel-grid single admin-stack" style={{ fontFamily: "system-ui, sans-serif" }}>
       <article className="panel" style={{ border: "none", boxShadow: "none", background: "transparent" }}>
         
-        {/* Modern Header Row */}
-        <div className="panel-header-row" style={{ display: "flex", justifyContent: "between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
+        {/* Navigation Control Area Header */}
+        <div className="panel-header-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
           <div>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "#111827", margin: 0 }}>Checkpoint Operations Tracking</h2>
-            {/* <p className="muted-text" style={{ color: "#4b5563", marginTop: "0.25rem", margin: 0 }}>Isolate network route nodes alongside localized structural frameworks.</p> */}
+            <h2 style={{ fontSize: "1.5rem", fontWeight: "700", color: "#111827", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}><FiMap/> Checkpoint Operations Tracking</h2>
           </div>
           <div className="field-group" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <select 
@@ -225,15 +255,7 @@ export default function ManageTrackingPage() {
           </div>
         </div>
 
-        {/* Global Feedback Banners */}
-        {/* {error ? <div style={{ padding: "1rem", background: "#fef2f2", borderColor: "#fca5a5", color: "#991b1b", borderRadius: "0.375rem", marginBottom: "1rem", borderWidth: "1px", borderStyle: "solid" }}>{error}</div> : null}
-        {invalidCheckpoints.length ? (
-        //   <div style={{ padding: "1rem", background: "#fffbeb", borderColor: "#fde68a", color: "#92400e", borderRadius: "0.375rem", marginBottom: "1rem", borderWidth: "1px", borderStyle: "solid" }}>
-        //     💡 {invalidCheckpoints.length} checkpoint configuration records possess invalid coordinates and are hidden from visual mapping telemetry.
-        //   </div>
-        ) : null} */}
-
-        {/* 2-Column Responsive Split Workspace Dashboard */}
+        {/* Workspace Display Wrapper Grid Split */}
         <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: "1.5rem", minHeight: "550px", width: "100%" }}>
           
           {/* Dynamic Sidebar Control Column */}
@@ -277,7 +299,7 @@ export default function ManageTrackingPage() {
             )}
           </div>
 
-          {/* Interactive Map Visualizer Column */}
+          {/* Interactive Map Visualizer Panel Workspace */}
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
             <div 
               ref={mapContainer} 
@@ -286,7 +308,7 @@ export default function ManageTrackingPage() {
           </div>
         </div>
 
-        {/* Invalid Configuration Data Tray (Footer Section) */}
+        {/* Invalid Configuration Data Tray (Footer Section Warnings) */}
         {invalidCheckpoints.length ? (
           <article style={{ marginTop: "1.5rem", padding: "1rem", background: "#fafafa", borderRadius: "0.5rem", border: "1px solid #e5e7eb" }}>
             <h4 style={{ fontSize: "0.875rem", fontWeight: "600", color: "#991b1b", margin: "0 0 0.5rem 0" }}>System Warning: Malformed Hardware Coordinates</h4>
