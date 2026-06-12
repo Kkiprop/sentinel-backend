@@ -1,115 +1,134 @@
 import { useEffect, useState } from "react";
-import { FiActivity, FiAlertTriangle, FiCheckCircle, FiClock, FiMap, FiShield } from "react-icons/fi";
+import { FiActivity, FiAlertTriangle, FiCheckCircle, FiAlertCircle, FiUsers, FiUserCheck, FiShield, FiMapPin } from "react-icons/fi";
 import StatCard from "../../components/common/StatCard";
+import ActiveShiftsTable from "../../components/common/ActiveShiftsTable";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState(null);
+  const [activeShiftsCount, setActiveShiftsCount] = useState(0);
+  const [incidentCount, setIncidentCount] = useState(0);
+  const [userCounts, setUserCounts] = useState({ guards: 0, supervisors: 0, admins: 0 });
+  const [checkpointCount, setCheckpointCount] = useState(0);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // 1. Fetch patrol dashboard stats (e.g., valid/invalid logs)
     api
       .get(endpoints.patrols.dashboard)
       .then((response) => setStats(response.data))
       .catch(() => setError("Unable to load dashboard stats."));
+
+    // 2. Fetch shifts using relative routing paths
+    api
+      .get("/api/patrols/manage/shifts/")
+      .then((response) => {
+        const shifts = response.data || [];
+        const activeShifts = shifts.filter(shift => shift.status === "active");
+        setActiveShiftsCount(activeShifts.length);
+      })
+      .catch(() => setError("Unable to load shift metrics."));
+
+    // 3. Fetch reported incidents count relatively
+    api
+      .get("/api/patrols/incidents/")
+      .then((response) => {
+        const totalIncidents = response.data?.count ?? response.data?.results?.length ?? 0;
+        setIncidentCount(totalIncidents);
+      })
+      .catch(() => setError("Unable to load incident metrics."));
+
+    // 4. Fetch user roster profiles relatively
+    api
+      .get("/api/auth/users/")
+      .then((response) => {
+        const users = response.data || [];
+        const counts = users.reduce(
+          (acc, user) => {
+            if (user.role === "guard") acc.guards++;
+            else if (user.role === "supervisor") acc.supervisors++;
+            else if (user.role === "admin") acc.admins++;
+            return acc;
+          },
+          { guards: 0, supervisors: 0, admins: 0 }
+        );
+        setUserCounts(counts);
+      })
+      .catch(() => setError("Unable to load user metrics."));
+
+    // 5. Fetch checkpoint locations relatively
+    api
+      .get("/api/patrols/manage/checkpoints/")
+      .then((response) => {
+        const checkpoints = response.data || [];
+        setCheckpointCount(checkpoints.length);
+      })
+      .catch(() => setError("Unable to load checkpoints metric."));
   }, []);
 
   return (
     <section className="dashboard-shell">
-      <article className="dashboard-hero panel">
-        <div>
-          <p className="dashboard-eyebrow">Operations overview</p>
-          <h2>Command visibility across sites, shifts, and patrol compliance.</h2>
-          <p className="muted-text">
-            Monitor company-wide patrol movement, track compliance health, and focus attention where operational risk is rising.
-          </p>
+      {error && (
+        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
+          {error}
         </div>
-        <div className="dashboard-hero-metrics">
-          <div>
-            <span>Coverage status</span>
-            <strong>{stats?.active_shift ? "Live patrols active" : "No active patrols"}</strong>
-          </div>
-          <div>
-            <span>Verified activity</span>
-            <strong>{stats?.valid_patrol_logs ?? 0} accepted scans</strong>
-          </div>
-        </div>
-      </article>
+      )}
 
       <div className="dashboard-stat-grid">
+        {/* --- shift stats --- */}
         <StatCard
-          label="Active Shift"
-          value={stats?.active_shift ? "Live" : "Idle"}
-          tone={stats?.active_shift ? "success" : "warning"}
+          label="Active Shifts"
+          value={activeShiftsCount}
+          tone={activeShiftsCount > 0 ? "success" : "warning"}
           icon={<FiActivity />}
-          meta="Current patrol network status"
+          meta={activeShiftsCount > 0 ? `${activeShiftsCount} live guard networks` : "No active shifts found"}
+        />
+
+        {/* --- reported incidents stats --- */}
+        <StatCard
+          label="Reported Incidents"
+          value={incidentCount}
+          tone={incidentCount > 0 ? "danger" : "default"}
+          icon={<FiAlertCircle />}
+          meta="Total filed field exceptions"
+        />
+
+        {/* --- user stats --- */}
+        <StatCard
+          label="Total Guards"
+          value={userCounts.guards}
+          tone="default"
+          icon={<FiUsers />}
+          meta="Active personnel on roster"
         />
         <StatCard
-          label="Total Patrol Logs"
-          value={stats?.total_patrol_logs ?? "—"}
-          icon={<FiMap />}
-          meta="All checkpoint scans recorded"
+          label="Supervisors"
+          value={userCounts.supervisors}
+          tone="default"
+          icon={<FiUserCheck />}
+          meta="Field management accounts"
         />
         <StatCard
-          label="Valid Logs"
-          value={stats?.valid_patrol_logs ?? "—"}
-          tone="success"
-          icon={<FiCheckCircle />}
-          meta="Verified scans within policy"
+          label="System Admins"
+          value={userCounts.admins}
+          tone="default"
+          icon={<FiShield />}
+          meta="Command control access"
         />
+
+        {/* --- checkpoint stats --- */}
         <StatCard
-          label="Invalid Logs"
-          value={stats?.invalid_patrol_logs ?? "—"}
-          tone="danger"
-          icon={<FiAlertTriangle />}
-          meta="Exceptions needing review"
+          label="Total Checkpoints"
+          value={checkpointCount}
+          tone="default"
+          icon={<FiMapPin />}
+          meta="Registered NFC/QR tags"
         />
       </div>
 
-      <div className="dashboard-content-grid">
-        <article className="panel dashboard-panel">
-          <div className="dashboard-panel-header">
-            <h3>Operations Snapshot</h3>
-            <span className="dashboard-chip"><FiShield /> Admin scope</span>
-          </div>
-          {error ? (
-            <p className="inline-feedback">{error}</p>
-          ) : (
-            <div className="dashboard-list">
-              <div>
-                <strong>Patrol health</strong>
-                <p>Company activity is summarized from active shifts and checkpoint logs in real time.</p>
-              </div>
-              <div>
-                <strong>Response readiness</strong>
-                <p>Use incident and invalid log counts to see where supervision should focus first.</p>
-              </div>
-            </div>
-          )}
-        </article>
-
-        <article className="panel dashboard-panel">
-          <div className="dashboard-panel-header">
-            <h3>Priority Queue</h3>
-            <span className="dashboard-chip"><FiClock /> Today</span>
-          </div>
-          <div className="dashboard-list compact">
-            <div>
-              <strong>Review active site patrols</strong>
-              <p>Confirm high-risk sites have coverage and movement remains visible in tracking.</p>
-            </div>
-            <div>
-              <strong>Validate incident evidence</strong>
-              <p>Inspect uploaded media and close items with complete reports.</p>
-            </div>
-            <div>
-              <strong>Approve access changes</strong>
-              <p>Keep guard assignments and operational permissions aligned with live work.</p>
-            </div>
-          </div>
-        </article>
-      </div>
+      {/* --- active shifts component execution --- */}
+      <ActiveShiftsTable />
     </section>
   );
 }

@@ -75,6 +75,7 @@ a {
   gap: 1rem;
   padding: 1rem 2rem;
   border-bottom: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   background: rgba(4, 8, 13, 0.75);
   position: sticky;
@@ -287,6 +288,7 @@ a {
   display: grid;
   grid-template-columns: 17.5rem 1fr;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .portal-sidebar {
@@ -378,6 +380,7 @@ a {
   border: 1px solid var(--border);
   border-radius: 1rem;
   background: rgba(255, 255, 255, 0.03);
+  -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
 }
@@ -386,6 +389,16 @@ a {
   margin: 0;
   font-size: 1rem;
   letter-spacing: 0.02em;
+}
+
+.portal-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.icon-button.menu-toggle {
+  display: none;
 }
 
 .portal-topbar-title p {
@@ -434,6 +447,7 @@ a {
   place-items: center;
   padding: 1.5rem;
   background: rgba(3, 8, 14, 0.72);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
 
@@ -913,7 +927,7 @@ a {
 
 .stat-card,
 .panel {
-  background: rgba(12, 19, 29, 0.93);
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 0.9rem;
   padding: 0.95rem;
@@ -1090,11 +1104,39 @@ a {
   }
 
   .portal-sidebar {
-    height: auto;
-    position: static;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-    padding: 1.1rem 1rem;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(20rem, 92vw);
+    max-width: 20rem;
+    height: 100vh;
+    transform: translateX(-110%);
+    transition: transform 220ms ease;
+    border-right: 1px solid var(--border);
+    border-bottom: 0;
+    padding: 1.5rem 1.2rem 1.25rem;
+    z-index: 50;
+    box-shadow: 16px 0 45px rgba(0, 0, 0, 0.24);
+  }
+
+  .portal-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 8, 14, 0.72);
+    z-index: 40;
+  }
+
+  .portal-topbar {
+    position: relative;
+    z-index: 10;
+  }
+
+  .icon-button.menu-toggle {
+    display: inline-flex;
   }
 
   .panel-grid {
@@ -1190,3 +1232,4 @@ a {
     display: grid;
   }
 }
+

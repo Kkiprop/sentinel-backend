@@ -1,4 +1,5 @@
 export default function StatCard({ label, value, tone = "default", icon = null, meta = "" }) {
+  // Base style to guarantee white background, clear borders, and spacing between cards
   return (
     <article className={`stat-card ${tone}`}>
       <div className="stat-card-header">

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { FiSun, FiMoon, FiUser, FiLogOut } from "react-icons/fi";
+import { FiMenu, FiSun, FiMoon, FiUser, FiLogOut } from "react-icons/fi";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 
 export default function PortalShell({ title, subtitle, links, children }) {
   const navigate = useNavigate();
   const auth = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => {
     if (typeof window === "undefined") return "dark";
     return window.localStorage.getItem("theme") || "dark";
@@ -25,9 +26,13 @@ export default function PortalShell({ title, subtitle, links, children }) {
     navigate("/login", { replace: true });
   };
 
+  const closeSidebar = () => setSidebarOpen(false);
+  const toggleSidebar = () => setSidebarOpen((current) => !current);
+
   return (
     <div className="portal-shell">
-      <aside className="portal-sidebar">
+      {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} />}
+      <aside className={`portal-sidebar ${sidebarOpen ? "open" : ""}`}>
         <p className="portal-kicker">SYSTEM ONLINE</p>
         <h1>{title}</h1>
         <p className="portal-subtitle">{subtitle}</p>
@@ -36,6 +41,7 @@ export default function PortalShell({ title, subtitle, links, children }) {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={closeSidebar}
               className={({ isActive }) => `portal-link ${isActive ? "active" : ""}`}
               end={item.end}
             >
@@ -47,9 +53,20 @@ export default function PortalShell({ title, subtitle, links, children }) {
       </aside>
       <main className="portal-main">
         <div className="portal-topbar">
-          <div className="portal-topbar-title">
-            <h2>{title}</h2>
-            <p>{subtitle}</p>
+          <div className="portal-topbar-left">
+            <button
+              className="icon-button menu-toggle"
+              type="button"
+              onClick={toggleSidebar}
+              aria-label="Toggle navigation"
+              aria-expanded={sidebarOpen}
+            >
+              <FiMenu size={18} />
+            </button>
+            <div className="portal-topbar-title">
+              <h2>{title}</h2>
+              <p>{subtitle}</p>
+            </div>
           </div>
           <div className="portal-topbar-actions">
             <button className="icon-button" type="button" onClick={toggleTheme} aria-label="Toggle theme">
