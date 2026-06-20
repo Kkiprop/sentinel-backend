@@ -30,9 +30,25 @@ export default function PortalShell({ title, subtitle, links, children }) {
   const toggleSidebar = () => setSidebarOpen((current) => !current);
 
   return (
-    <div className="portal-shell">
+    <div 
+      className="portal-shell"
+      style={{
+        display: "flex",
+        height: "100vh",       // Locks layout wrapper strictly to viewport height
+        width: "100vw",
+        overflow: "hidden",     // Disables full-page window global scrolling
+      }}
+    >
       {sidebarOpen && <div className="sidebar-overlay" onClick={closeSidebar} />}
-      <aside className={`portal-sidebar ${sidebarOpen ? "open" : ""}`}>
+      
+      <aside 
+        className={`portal-sidebar ${sidebarOpen ? "open" : ""}`}
+        style={{
+          height: "100vh",
+          overflowY: "auto",    // Links container inside sidebar can still scroll if needed
+          flexShrink: 0,        // Ensures sidebar width remains uncompressed
+        }}
+      >
         <p className="portal-kicker">SYSTEM ONLINE</p>
         <h1>{title}</h1>
         <p className="portal-subtitle">{subtitle}</p>
@@ -51,8 +67,24 @@ export default function PortalShell({ title, subtitle, links, children }) {
           ))}
         </nav>
       </aside>
-      <main className="portal-main">
-        <div className="portal-topbar">
+
+      <main 
+        className="portal-main"
+        style={{
+          flexGrow: 1,
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          overflow: "hidden",   // Prevents topbar and content combined from stretching parent
+        }}
+      >
+        {/* Stuck Top Header Panel Block */}
+        <div 
+          className="portal-topbar"
+          style={{
+            flexShrink: 0,      // Keeps topbar at its precise design design height
+          }}
+        >
           <div className="portal-topbar-left">
             <button
               className="icon-button menu-toggle"
@@ -77,7 +109,17 @@ export default function PortalShell({ title, subtitle, links, children }) {
             </button>
           </div>
         </div>
-        {children}
+
+        {/* Isolated Viewport Active Page Content Container */}
+        <div
+          style={{
+            flexGrow: 1,
+            overflowY: "auto",  // Active view layout page absorbs full inner scrolling action
+            padding: "1.5rem",   // Retains spacing baseline
+          }}
+        >
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiChevronLeft, FiSend, FiLoader, FiAlertTriangle, FiPaperclip, FiImage, FiX } from "react-icons/fi";
+import { FiChevronLeft, FiSend, FiLoader, FiAlertTriangle, FiPaperclip, FiImage, FiX, FiUser } from "react-icons/fi";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
 
@@ -19,7 +19,7 @@ export default function IncidentsPage() {
   const [description, setDescription] = useState("");
   const [type, setType] = useState("other");
   const [busy, setBusy] = useState(false);
-  const [attachedFile, setAttachedFile] = useState(null); // stores { file, previewUrl, type: 'image' | 'video' }
+  const [attachedFile, setAttachedFile] = useState(null); 
 
   const [messages, setMessages] = useState([
     {
@@ -29,6 +29,35 @@ export default function IncidentsPage() {
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
+
+  // Fetch historic feed entries on terminal instantiation
+  useEffect(() => {
+    api.get(endpoints.patrols.incidents)
+      .then((response) => {
+        const historyData = response.data.results || response.data;
+        
+        // Map historical database records into the chat message bubble array format
+        const formattedHistory = historyData.map((incident) => {
+          // If your API provides a marker or if we deduce authorship via name matching:
+          // e.g., mapping guard_is_me property or guard_name comparison
+          const isCurrentUser = incident.is_me || false; 
+
+          return {
+            id: incident.id || `hist-${Math.random()}`,
+            sender: isCurrentUser ? "guard" : "peer",
+            authorName: incident.guard_name || `Officer #${incident.guard}`,
+            type: incident.type,
+            text: incident.description,
+            time: incident.created_at ? incident.created_at.replace("T", " ").substring(11, 16) : "Prior",
+            attachment: incident.image ? { url: incident.image, type: "image" } : null
+          };
+        });
+
+        // Retain the initialized system baseline broadcast notice at index 0
+        setMessages(prev => [prev[0], ...formattedHistory.reverse()]);
+      })
+      .catch((err) => console.error("Could not trace historic dispatch recordings:", err));
+  }, []);
 
   const getLocation = () =>
     new Promise((resolve, reject) => {
@@ -57,7 +86,6 @@ export default function IncidentsPage() {
     scrollToBottom();
   }, [messages, busy]);
 
-  // Handle local image or video selection
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -89,13 +117,13 @@ export default function IncidentsPage() {
     const currentAttachment = attachedFile;
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // Append user message instantly along with media preview if present
     const userMessageId = `msg-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
       {
         id: userMessageId,
         sender: "guard",
+        authorName: "Me",
         type: currentType,
         text: currentText,
         time: timestamp,
@@ -113,15 +141,13 @@ export default function IncidentsPage() {
     try {
       const { latitude, longitude } = await getLocation();
       
-      // If your backend handles file processing, build FormData payload structures here
       const payload = {
         description: currentText,
         type: currentType,
         latitude,
         longitude,
         created_at: new Date().toISOString(),
-        client_id: `incident-${Date.now()}`,
-        // media_attached: !!currentAttachment
+        client_id: `incident-${Date.now()}`
       };
 
       await api.post(endpoints.patrols.incidents, payload);
@@ -175,7 +201,6 @@ export default function IncidentsPage() {
     }}>
       <style>{nativeTapStyle}</style>
 
-      {/* Hidden Native Input Field for Triggering OS Media Roll */}
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -206,7 +231,7 @@ export default function IncidentsPage() {
           </div>
           <div>
             <h2 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, color: "#0f172a" }}>HQ Dispatch Logs</h2>
-            <span style={{ fontSize: "0.7rem", color: "#22c55e", display: "block", fontWeight: 600 }}>● Online Recording Feed</span>
+            <span style={{ fontSize: "0.7rem", color: "#22c55e", display: "block", fontWeight: 600 }}>● Online Collaborative Feed</span>
           </div>
         </div>
       </header>
@@ -241,23 +266,35 @@ export default function IncidentsPage() {
             );
           }
 
+          // Compute message layout context values based on sender alignment (Me vs Other Guards)
+          const isMe = msg.sender === "guard";
+
           return (
-            <div key={msg.id} style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", maxWidth: "80%" }}>
+            <div key={msg.id} style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start", width: "100%" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", maxWidth: "80%" }}>
+                
+                {/* Peer Guard Badge Tag */}
+                {!isMe && (
+                  <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "#64748b", marginBottom: "0.25rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                    <FiUser size={10} /> {msg.authorName || "Active Guard"}
+                  </span>
+                )}
+
                 <div style={{ 
-                  backgroundColor: "#0f172a",
-                  color: "#ffffff",
+                  backgroundColor: isMe ? "#0f172a" : "#ffffff",
+                  color: isMe ? "#ffffff" : "#0f172a",
+                  border: isMe ? "none" : "1px solid #e2e8f0",
                   padding: "0.75rem 1rem",
-                  borderRadius: "1rem 1rem 0rem 1rem",
+                  borderRadius: isMe ? "1rem 1rem 0rem 1rem" : "1rem 1rem 1rem 0rem",
                   fontSize: "0.95rem",
-                  boxShadow: "0 2px 4px rgba(15,23,42,0.08)",
+                  boxShadow: "0 2px 4px rgba(15,23,42,0.04)",
                   wordBreak: "break-word"
                 }}>
                   {msg.type && (
                     <span style={{ 
                       display: "inline-block", 
-                      backgroundColor: "#334155", 
-                      color: "#94a3b8", 
+                      backgroundColor: isMe ? "#334155" : "#f1f5f9", 
+                      color: isMe ? "#94a3b8" : "#64748b", 
                       fontSize: "0.65rem", 
                       fontWeight: 700, 
                       padding: "0.15rem 0.35rem", 
@@ -269,11 +306,10 @@ export default function IncidentsPage() {
                     </span>
                   )}
                   
-                  {/* Inline attached media message asset previews */}
                   {msg.attachment && (
                     <div style={{ marginBottom: "0.5rem", borderRadius: "0.5rem", overflow: "hidden", backgroundColor: "#1e293b" }}>
                       {msg.attachment.type === "image" ? (
-                        <img src={msg.attachment.url} alt="Attached Evidence" style={{ width: "100%", maxHeight: "150px", objectFit: "cover", display: "block" }} />
+                        <img src={msg.attachment.url} alt="Evidence" style={{ width: "100%", maxHeight: "150px", objectFit: "cover", display: "block" }} />
                       ) : (
                         <video src={msg.attachment.url} controls style={{ width: "100%", maxHeight: "150px", display: "block" }} />
                       )}
@@ -282,7 +318,7 @@ export default function IncidentsPage() {
 
                   {msg.text && <div>{msg.text}</div>}
                 </div>
-                <span style={{ fontSize: "0.65rem", color: "#94a3b8", marginTop: "0.25rem", paddingRight: "0.25rem" }}>
+                <span style={{ fontSize: "0.65rem", color: "#94a3b8", marginTop: "0.25rem", paddingLeft: isMe ? 0 : "0.25rem", paddingRight: isMe ? "0.25rem" : 0 }}>
                   {msg.time}
                 </span>
               </div>
@@ -364,7 +400,6 @@ export default function IncidentsPage() {
           alignItems: "center", 
           gap: "0.5rem"
         }}>
-          {/* Paperclip Action Key */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -385,7 +420,6 @@ export default function IncidentsPage() {
             <FiPaperclip size={18} />
           </button>
 
-          {/* Text Input Block line */}
           <div style={{
             display: "flex",
             alignItems: "center",
