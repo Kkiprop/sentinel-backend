@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -43,7 +43,9 @@ export default function GuardHomePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [activeShift, setActiveShift] = useState(false);
-  const [mapCoordinates, setMapCoordinates] = useState(null); // Holds active shift coordinate data
+  
+  // Refactored to handle collections of active markers
+  const [mapCoordinates, setMapCoordinates] = useState([]); 
   
   // State to track SOS long-press progress
   const [sosProgress, setSosProgress] = useState(0);
@@ -58,42 +60,64 @@ export default function GuardHomePage() {
     return user.email.split("@")[0];
   }, [user]);
 
-  const triggerHaptic = (duration = 50) => {
+  const triggerHaptic = useCallback((duration = 50) => {
     if (navigator.vibrate) {
       navigator.vibrate(duration);
     }
-  };
+  }, []);
 
-  // Fetch shifts coordinates to mark active locations on the map
-  const fetchActiveShiftMapData = async () => {
+  // Fetches live operational data and converts active items into renderable layout markers
+  const fetchActiveShiftMapData = useCallback(async () => {
     try {
-      // Using your explicit endpoint route: /api/patrols/manage/shifts/
-      const response = await api.get("/api/patrols/manage/shifts/");
-      const shifts = response.data;
-      
-      // Look for an active item with valid coordinates
-      const activeItem = Array.isArray(shifts) 
-        ? shifts.find(s => s.status === "active" && s.start_latitude) 
-        : shifts?.status === "active" ? shifts : null;
+      const response = await api.get("api/patrols/manage/shifts");
+      const shiftsArray = Array.isArray(response.data) ? response.data : [];
 
-      if (activeItem) {
-        setMapCoordinates({
-          lat: parseFloat(activeItem.start_latitude),
-          lng: parseFloat(activeItem.start_longitude),
-          label: `Shift #${activeItem.id} Active Location`
-        });
+      // Filter for explicitly active rows containing valid starting positional entries
+      const processedActiveMarkers = shiftsArray
+        .filter(
+          (shift) =>
+            shift.status === "active" &&
+            shift.start_latitude &&
+            shift.start_longitude
+        )
+        .map((shift) => ({
+          id: shift.id,
+          lat: parseFloat(shift.start_latitude),
+          lng: parseFloat(shift.start_longitude),
+          label: `Active Shift #${shift.id} — Guard ${shift.guard} at Site ${shift.site}`,
+        }));
+
+      if (processedActiveMarkers.length > 0) {
+        setMapCoordinates(processedActiveMarkers);
       } else {
-        // Fallback or Default to device location if no active tracking record exists yet
+        // Fallback to local self tracking coordinates if cluster returns vacant
         navigator.geolocation.getCurrentPosition((pos) => {
-          setMapCoordinates({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: "Your Current Location" });
+          setMapCoordinates([
+            {
+              id: "fallback-self-pin",
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              label: "Your Location (No remote active sessions running)",
+            },
+          ]);
         });
       }
     } catch (err) {
-      console.error("Error loading map coordinates", err);
+      console.error("Error connecting to live tracking shifts cluster API", err);
+      navigator.geolocation.getCurrentPosition((pos) => {
+        setMapCoordinates([
+          {
+            id: "fallback-err-pin",
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            label: "Your Current Location",
+          },
+        ]);
+      });
     }
-  };
+  }, []);
 
-  const loadSites = async () => {
+  const loadSites = useCallback(async () => {
     try {
       const response = await api.get(endpoints.patrols.sites);
       setSites(response.data);
@@ -101,9 +125,9 @@ export default function GuardHomePage() {
     } catch (sitesError) {
       setError("Unable to load assigned sites.");
     }
-  };
+  }, []);
 
-  const refreshShiftState = async () => {
+  const refreshShiftState = useCallback(async () => {
     try {
       const response = await api.get(endpoints.patrols.currentShift);
       const active = Boolean(response.data?.active);
@@ -120,11 +144,16 @@ export default function GuardHomePage() {
       await loadSites();
       fetchActiveShiftMapData();
     }
-  };
+  }, [fetchActiveShiftMapData, loadSites]);
 
   useEffect(() => {
     refreshShiftState();
-  }, []);
+
+    return () => {
+      if (sosTimerRef.current) clearTimeout(sosTimerRef.current);
+      if (sosIntervalRef.current) clearInterval(sosIntervalRef.current);
+    };
+  }, [refreshShiftState]);
 
   const getLocation = () =>
     new Promise((resolve, reject) => {
@@ -194,7 +223,7 @@ export default function GuardHomePage() {
       });
       setActiveShift(false);
       setMessage("Shift ended successfully.");
-      setMapCoordinates(null);
+      setMapCoordinates([]);
     } catch (endError) {
       setError(endError?.response?.data?.error || endError.message || "Unable to end shift.");
     } finally {
@@ -231,6 +260,9 @@ export default function GuardHomePage() {
     e.preventDefault();
     triggerHaptic(30);
 
+    if (sosTimerRef.current) clearTimeout(sosTimerRef.current);
+    if (sosIntervalRef.current) clearInterval(sosIntervalRef.current);
+
     sosTimerRef.current = setTimeout(() => {
       clearInterval(sosIntervalRef.current);
       setSosProgress(100);
@@ -243,8 +275,8 @@ export default function GuardHomePage() {
   };
 
   const handleSosPressEnd = () => {
-    clearTimeout(sosTimerRef.current);
-    clearInterval(sosIntervalRef.current);
+    if (sosTimerRef.current) clearTimeout(sosTimerRef.current);
+    if (sosIntervalRef.current) clearInterval(sosIntervalRef.current);
     setSosProgress(0);
   };
 
@@ -341,7 +373,7 @@ export default function GuardHomePage() {
           </div>
         </section>
 
-        {/* Map Container - Resolves to roughly 42% Viewport Height */}
+        {/* Multi-Marker Monitoring Map Section */}
         <section 
           style={{ 
             height: "42vh", 
@@ -354,31 +386,41 @@ export default function GuardHomePage() {
             background: "#cbd5e1"
           }}
         >
-          {mapCoordinates ? (
-            <MapContainer center={[mapCoordinates.lat, mapCoordinates.lng]} zoom={14} zoomControl={false}>
+          {mapCoordinates.length > 0 ? (
+            <MapContainer 
+              center={[mapCoordinates[0].lat, mapCoordinates[0].lng]} 
+              zoom={13} 
+              zoomControl={false}
+            >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              <Marker position={[mapCoordinates.lat, mapCoordinates.lng]} icon={customIcon}>
-                <Popup>
-                  <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>{mapCoordinates.label}</div>
-                </Popup>
-              </Marker>
+              
+              {/* Iterates through array of processed active shift entries */}
+              {mapCoordinates.map((marker) => (
+                <Marker key={marker.id} position={[marker.lat, marker.lng]} icon={customIcon}>
+                  <Popup>
+                    <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "#0f172a" }}>
+                      {marker.label}
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
             </MapContainer>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "#64748b", gap: "0.5rem" }}>
               <FiMapPin size={24} />
-              <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>No active shift tracking map loaded.</span>
+              <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>Synchronizing live deployment map...</span>
             </div>
           )}
         </section>
 
-        {/* Centerpiece SOS & Clock In/Out Section with Creative Overlap positioning */}
+        {/* Dynamic Centerpiece Overlay Trigger Controls */}
         <section
           style={{
             position: "relative",
-            marginTop: "-6rem", // Pulls up the dynamic stack to split over the map boundary
+            marginTop: "-6rem", 
             zIndex: 10,
             display: "flex",
             flexDirection: "column",
@@ -392,7 +434,7 @@ export default function GuardHomePage() {
               width: "10.5rem",
               height: "10.5rem",
               borderRadius: "50%",
-              background: "#f8fafc", // Solid background masking to clip gracefully over the map layer
+              background: "#f8fafc", 
               padding: "4px",
               boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
               display: "flex",
@@ -430,6 +472,7 @@ export default function GuardHomePage() {
               onMouseLeave={handleSosPressEnd}
               onTouchStart={handleSosPressStart}
               onTouchEnd={handleSosPressEnd}
+              onTouchCancel={handleSosPressEnd}
               disabled={busy || !activeShift}
               className={`btn-tap-effect ${activeShift && !busy ? "sos-active-pulse" : ""}`}
               style={{
@@ -458,7 +501,7 @@ export default function GuardHomePage() {
             </button>
           </div>
 
-          {/* Feedback Messages inside layout stream */}
+          {/* Feedback Messages */}
           {(error || message) && (
             <div style={{ width: "100%", zIndex: 11 }}>
               {error && (
@@ -474,7 +517,7 @@ export default function GuardHomePage() {
             </div>
           )}
 
-          {/* Shift Clock In Button Control Box */}
+          {/* Shift Activation Controls Box */}
           {!activeShift && (
             <div style={{ width: "100%", background: "#fff", borderRadius: "1rem", padding: "0.75rem", border: "1px solid #e2e8f0" }}>
               <button
@@ -506,15 +549,8 @@ export default function GuardHomePage() {
 
         {/* Unified Operations Utility Actions Stack (Inline 2x2 Grid) */}
         <section style={{ marginTop: "0.5rem" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)", // Configures the 2x2 layout
-              gap: "0.65rem",
-            }}
-          >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.65rem" }}>
             {QUICK_ACTIONS.map((item) => {
-              // Guard can always access their shifts history
               const isDisabled = !activeShift && item.key !== "myShift";
 
               return (
@@ -529,7 +565,7 @@ export default function GuardHomePage() {
                     borderRadius: "0.75rem",
                     padding: "0.75rem 0.65rem",
                     display: "flex",
-                    flexDirection: "row", // Keeps icon and text inline
+                    flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "flex-start",
                     gap: "0.5rem",
@@ -558,13 +594,13 @@ export default function GuardHomePage() {
 
                   <span
                     style={{
-                      fontSize: "0.8rem", // Slightly normalized for tight 2-column inline spaces
+                      fontSize: "0.8rem",
                       fontWeight: 700,
                       color: "#1e293b",
                       textAlign: "left",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
-                      textOverflow: "ellipsis" // Elegant trimming on extremely narrow displays
+                      textOverflow: "ellipsis"
                     }}
                   >
                     {item.label}
