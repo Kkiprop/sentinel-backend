@@ -14,6 +14,16 @@ import {
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
+import {
+  appendLocalRecord,
+  enqueueOfflineAction,
+  loadCachedSites,
+  saveCachedSites,
+  loadOfflineShiftState,
+  saveOfflineShiftState,
+  isOnline,
+  isNetworkError,
+} from "../../lib/offline.js";
 
 // Custom Leaflet marker setup to resolve default asset path issues
 import markerIconPng from "leaflet/dist/images/marker-icon.png";
@@ -121,9 +131,16 @@ export default function GuardHomePage() {
     try {
       const response = await api.get(endpoints.patrols.sites);
       setSites(response.data);
+      saveCachedSites(response.data);
       setError("");
     } catch (sitesError) {
-      setError("Unable to load assigned sites.");
+      const cachedSites = loadCachedSites();
+      if (cachedSites?.length) {
+        setSites(cachedSites);
+        setError("Offline: showing cached assigned sites.");
+      } else {
+        setError("Unable to load assigned sites.");
+      }
     }
   }, []);
 
@@ -140,8 +157,14 @@ export default function GuardHomePage() {
         setError("");
       }
     } catch (shiftError) {
-      setActiveShift(false);
-      await loadSites();
+      const offlineShift = loadOfflineShiftState();
+      if (offlineShift?.active) {
+        setActiveShift(true);
+        setError("Offline: restored active shift from local device.");
+      } else {
+        setActiveShift(false);
+        await loadSites();
+      }
       fetchActiveShiftMapData();
     }
   }, [fetchActiveShiftMapData, loadSites]);
@@ -187,17 +210,52 @@ export default function GuardHomePage() {
 
     try {
       const { latitude, longitude } = await getLocation();
-      await api.post(endpoints.patrols.startShift, {
+      const payload = {
         site_id: sites[0].id,
         latitude,
         longitude,
-      });
+        created_at: new Date().toISOString(),
+        client_id: `shift-start-${Date.now()}`,
+      };
+
+      await api.post(endpoints.patrols.startShift, payload);
       setActiveShift(true);
+      saveOfflineShiftState({
+        active: true,
+        siteId: sites[0].id,
+        latitude,
+        longitude,
+        startedAt: payload.created_at,
+      });
       setMessage("Shift started successfully.");
       fetchActiveShiftMapData();
     } catch (startError) {
       const errorMessage = startError?.response?.data?.error || startError.message || "Unable to start shift.";
-      if (errorMessage?.toLowerCase().includes("already has active shift")) {
+      if (!isOnline() || isNetworkError(startError)) {
+        const payload = {
+          site_id: sites[0].id,
+          latitude: null,
+          longitude: null,
+          created_at: new Date().toISOString(),
+          client_id: `shift-start-${Date.now()}`,
+        };
+        enqueueOfflineAction({
+          endpoint: endpoints.patrols.startShift,
+          payload,
+          category: "shift",
+          type: "start",
+          method: "post",
+        });
+        saveOfflineShiftState({
+          active: true,
+          siteId: sites[0].id,
+          latitude: null,
+          longitude: null,
+          startedAt: payload.created_at,
+        });
+        setActiveShift(true);
+        setMessage("Offline: shift started locally and queued for sync.");
+      } else if (errorMessage?.toLowerCase().includes("already has active shift")) {
         setActiveShift(true);
         setError("You already have an active shift.");
         setSites([]);
@@ -217,15 +275,39 @@ export default function GuardHomePage() {
 
     try {
       const { latitude, longitude } = await getLocation();
-      await api.post(endpoints.patrols.endShift, {
+      const payload = {
         latitude,
         longitude,
-      });
+        created_at: new Date().toISOString(),
+        client_id: `shift-end-${Date.now()}`,
+      };
+      await api.post(endpoints.patrols.endShift, payload);
       setActiveShift(false);
+      saveOfflineShiftState({ active: false, endedAt: payload.created_at });
       setMessage("Shift ended successfully.");
       setMapCoordinates([]);
     } catch (endError) {
-      setError(endError?.response?.data?.error || endError.message || "Unable to end shift.");
+      if (!isOnline() || isNetworkError(endError)) {
+        const payload = {
+          latitude: null,
+          longitude: null,
+          created_at: new Date().toISOString(),
+          client_id: `shift-end-${Date.now()}`,
+        };
+        enqueueOfflineAction({
+          endpoint: endpoints.patrols.endShift,
+          payload,
+          category: "shift",
+          type: "end",
+          method: "post",
+        });
+        saveOfflineShiftState({ active: false, endedAt: payload.created_at });
+        setActiveShift(false);
+        setMessage("Offline: shift ended locally and queued for sync.");
+        setMapCoordinates([]);
+      } else {
+        setError(endError?.response?.data?.error || endError.message || "Unable to end shift.");
+      }
     } finally {
       setBusy(false);
     }
@@ -239,17 +321,39 @@ export default function GuardHomePage() {
 
     try {
       const { latitude, longitude } = await getLocation();
-      await api.post(endpoints.patrols.incidents, {
+      const payload = {
         type: "other",
         description: "SOS alert activated from guard home page.",
         latitude,
         longitude,
         created_at: new Date().toISOString(),
         client_id: `incident-sos-${Date.now()}`,
-      });
+      };
+      await api.post(endpoints.patrols.incidents, payload);
+      appendLocalRecord("incidents", { ...payload, pending: false });
       setMessage("SOS alert submitted to command.");
     } catch (sosError) {
-      setError(sosError?.response?.data?.error || sosError.message || "Unable to submit SOS alert.");
+      if (!isOnline() || isNetworkError(sosError)) {
+        const payload = {
+          type: "other",
+          description: "SOS alert activated from guard home page.",
+          latitude: null,
+          longitude: null,
+          created_at: new Date().toISOString(),
+          client_id: `incident-sos-${Date.now()}`,
+        };
+        enqueueOfflineAction({
+          endpoint: endpoints.patrols.incidents,
+          payload,
+          category: "incidents",
+          type: "incident",
+          method: "post",
+        });
+        appendLocalRecord("incidents", { ...payload, pending: true });
+        setMessage("Offline: SOS alert queued locally for dispatch.");
+      } else {
+        setError(sosError?.response?.data?.error || sosError.message || "Unable to submit SOS alert.");
+      }
     } finally {
       setBusy(false);
     }

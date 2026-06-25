@@ -2,6 +2,14 @@
 import { FiPlus, FiUser, FiMail, FiPhone, FiBriefcase, FiClock } from "react-icons/fi";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
+import {
+  appendLocalRecord,
+  enqueueOfflineAction,
+  loadLocalRecords,
+  saveCachedSites,
+  isOnline,
+  isNetworkError,
+} from "../../lib/offline.js";
 import Modal from "../../components/common/Modal.jsx";
 
 const nowLocalValue = () => {
@@ -31,10 +39,20 @@ export default function ManageVisitorsPage() {
   const loadVisitors = async () => {
     try {
       const response = await api.get(endpoints.patrols.adminVisitors);
-      setVisitors(response.data.results || response.data);
+      const payload = response.data.results || response.data;
+      setVisitors(payload);
       setError("");
+      payload.forEach((visitor) => {
+        appendLocalRecord("visitors", { ...visitor, pending: false });
+      });
     } catch {
-      setError("Unable to retrieve visitor records.");
+      const cachedVisitors = loadLocalRecords("visitors") || [];
+      if (cachedVisitors.length) {
+        setVisitors(cachedVisitors);
+        setError("Offline: showing locally stored visitor logs.");
+      } else {
+        setError("Unable to retrieve visitor records.");
+      }
     }
   };
 
@@ -65,10 +83,26 @@ export default function ManageVisitorsPage() {
       setForm(initialForm);
       setShowModal(false);
       setStatus("Visitor record created successfully.");
+      appendLocalRecord("visitors", { ...payload, pending: false, check_in: payload.check_in });
       await loadVisitors();
     } catch (requestError) {
-      const message = requestError?.response?.data?.detail || requestError?.response?.data || "Failed to save visitor details.";
-      setStatus(typeof message === "string" ? message : JSON.stringify(message));
+      if (!isOnline() || isNetworkError(requestError)) {
+        const offlinePayload = { ...payload, client_id: `visitor-${Date.now()}` };
+        enqueueOfflineAction({
+          endpoint: endpoints.patrols.adminVisitors,
+          payload: offlinePayload,
+          category: "visitors",
+          type: "visitor",
+          method: "post",
+        });
+        appendLocalRecord("visitors", { ...offlinePayload, pending: true });
+        setForm(initialForm);
+        setShowModal(false);
+        setStatus("Offline: visitor record queued locally.");
+      } else {
+        const message = requestError?.response?.data?.detail || requestError?.response?.data || "Failed to save visitor details.";
+        setStatus(typeof message === "string" ? message : JSON.stringify(message));
+      }
     } finally {
       setSaving(false);
     }
@@ -90,8 +124,20 @@ export default function ManageVisitorsPage() {
       setStatus("Visitor checked out successfully.");
       await loadVisitors();
     } catch (requestError) {
-      const message = requestError?.response?.data?.detail || requestError?.response?.data || "Failed to check out visitor.";
-      setStatus(typeof message === "string" ? message : JSON.stringify(message));
+      if (!isOnline() || isNetworkError(requestError)) {
+        const offlinePayload = { check_out: new Date().toISOString(), client_id: `visitor-checkout-${visitorId}-${Date.now()}` };
+        enqueueOfflineAction({
+          endpoint: `${endpoints.patrols.adminVisitors}${visitorId}/`,
+          payload: offlinePayload,
+          category: "visitors",
+          type: "visitor-checkout",
+          method: "patch",
+        });
+        setStatus("Offline: checkout queued locally and will sync when online.");
+      } else {
+        const message = requestError?.response?.data?.detail || requestError?.response?.data || "Failed to check out visitor.";
+        setStatus(typeof message === "string" ? message : JSON.stringify(message));
+      }
     } finally {
       setSaving(false);
     }

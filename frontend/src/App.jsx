@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { FiHome, FiMap, FiMapPin, FiClock, FiShield, FiAlertTriangle, FiUsers, FiTarget, FiBriefcase } from "react-icons/fi";
 import PortalShell from "./components/layout/PortalShell";
 import GuardShell from "./components/layout/GuardShell.jsx";
-import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/auth/LoginPage";
 import GuardHomePage from "./pages/guard/GuardHomePage";
 import GuardDashboardPage from "./pages/guard/GuardDashboardPage";
@@ -88,7 +87,6 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
       <Route
         path="/login"
         element={
@@ -115,7 +113,7 @@ export default function App() {
           </RequireAuth>
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }

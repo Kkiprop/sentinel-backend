@@ -4,6 +4,11 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import './style.css';
 import { AuthProvider } from './contexts/AuthContext.jsx';
+import { initOfflineSync } from './lib/offline.js';
+
+if (typeof window !== 'undefined') {
+  initOfflineSync();
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

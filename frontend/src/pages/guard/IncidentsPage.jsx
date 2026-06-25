@@ -3,6 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { FiChevronLeft, FiSend, FiLoader, FiAlertTriangle, FiPaperclip, FiImage, FiX, FiUser } from "react-icons/fi";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
+import {
+  appendLocalRecord,
+  enqueueOfflineAction,
+  isOnline,
+  isNetworkError,
+} from "../../lib/offline.js";
 
 const INCIDENT_TYPES = [
   { value: "other", label: "Other" },
@@ -152,6 +158,7 @@ export default function IncidentsPage() {
 
       await api.post(endpoints.patrols.incidents, payload);
 
+      appendLocalRecord("incidents", { ...payload, pending: false });
       setMessages((prev) => [
         ...prev,
         {
@@ -164,16 +171,45 @@ export default function IncidentsPage() {
       ]);
 
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `sys-err-${Date.now()}`,
-          sender: "system",
-          text: error?.response?.data?.error || error.message || "Failed to broadcast incident payload logs.",
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          error: true
-        }
-      ]);
+      if (!isOnline() || isNetworkError(error)) {
+        const fallbackPayload = {
+          description: currentText,
+          type: currentType,
+          latitude: null,
+          longitude: null,
+          created_at: new Date().toISOString(),
+          client_id: `incident-${Date.now()}`,
+        };
+        enqueueOfflineAction({
+          endpoint: endpoints.patrols.incidents,
+          payload: fallbackPayload,
+          category: "incidents",
+          type: "incident",
+          method: "post",
+        });
+        appendLocalRecord("incidents", { ...fallbackPayload, pending: true });
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `sys-success-${Date.now()}`,
+            sender: "system",
+            text: "Offline: incident queued locally and will transmit when connectivity returns.",
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            success: true
+          }
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `sys-err-${Date.now()}`,
+            sender: "system",
+            text: error?.response?.data?.error || error.message || "Failed to broadcast incident payload logs.",
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            error: true
+          }
+        ]);
+      }
     } finally {
       setBusy(false);
     }

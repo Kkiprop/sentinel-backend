@@ -3,6 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { FiChevronLeft, FiMaximize, FiLoader, FiCheckCircle, FiAlertTriangle, FiEdit3, FiX, FiCamera } from "react-icons/fi";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
+import {
+  appendLocalRecord,
+  enqueueOfflineAction,
+  isOnline,
+  isNetworkError,
+} from "../../lib/offline.js";
 import jsQR from "jsqr";
 
 function getLocation() {
@@ -69,10 +75,32 @@ export default function CheckpointsPage() {
         });
       }
     } catch (error) {
-      setStatus({
-        type: "error",
-        message: error?.response?.data?.error || error.message || "Scan failed."
-      });
+      if (!isOnline() || isNetworkError(error)) {
+        const fallbackPayload = {
+          checkpoint_qr: qrValue,
+          latitude: null,
+          longitude: null,
+          scanned_at: new Date().toISOString(),
+          client_id: `scan-${Date.now()}`,
+        };
+        enqueueOfflineAction({
+          endpoint: endpoints.patrols.scan,
+          payload: fallbackPayload,
+          category: "scans",
+          type: "scan",
+          method: "post",
+        });
+        appendLocalRecord("scans", { ...fallbackPayload, pending: true });
+        setStatus({
+          type: "success",
+          message: "Offline: checkpoint scan queued locally and will sync when online.",
+        });
+      } else {
+        setStatus({
+          type: "error",
+          message: error?.response?.data?.error || error.message || "Scan failed.",
+        });
+      }
     } finally {
       setBusy(false);
       setScannerMessage("");
