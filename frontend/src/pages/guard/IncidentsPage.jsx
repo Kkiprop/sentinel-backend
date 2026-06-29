@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FiChevronLeft, FiSend, FiLoader, FiAlertTriangle, FiPaperclip, FiImage, FiX, FiUser } from "react-icons/fi";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
+import { loadOfflineIncidents } from "../../lib/offline.js";
 import {
   appendLocalRecord,
   enqueueOfflineAction,
@@ -62,7 +63,23 @@ export default function IncidentsPage() {
         // Retain the initialized system baseline broadcast notice at index 0
         setMessages(prev => [prev[0], ...formattedHistory.reverse()]);
       })
-      .catch((err) => console.error("Could not trace historic dispatch recordings:", err));
+      .catch((err) => {
+        const cached = loadOfflineIncidents();
+        if (cached.length) {
+          const formattedHistory = cached.map((incident) => ({
+            id: incident.id || `hist-${Math.random()}`,
+            sender: "guard",
+            authorName: incident.guard_name || `Officer #${incident.guard || "me"}`,
+            type: incident.type || incident.type || "other",
+            text: incident.description || incident.notes || "Offline incident record",
+            time: incident.created_at ? incident.created_at.replace("T", " ").substring(11, 16) : "Offline",
+            attachment: incident.image ? { url: incident.image, type: "image" } : null,
+          }));
+          setMessages(prev => [prev[0], ...formattedHistory.reverse()]);
+        } else {
+          console.error("Could not trace historic dispatch recordings:", err);
+        }
+      });
   }, []);
 
   const getLocation = () =>

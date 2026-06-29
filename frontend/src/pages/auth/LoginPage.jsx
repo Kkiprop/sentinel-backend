@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import api from "../../lib/api";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { endpoints } from "../../lib/endpoints";
-import { getOfflineUser, getOfflinePin, verifyOfflinePin, setOfflinePin } from "../../lib/auth";
+import { getOfflineUser, getOfflinePin, verifyOfflinePin } from "../../lib/auth";
+import { saveOfflineShifts, saveOfflineIncidents } from "../../lib/offline.js";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -26,6 +27,23 @@ export default function LoginPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const cacheUserData = async () => {
+    try {
+      const [shiftsRes, incidentsRes] = await Promise.all([
+        api.get(endpoints.patrols.shifts, { params: { page_size: 100 } }),
+        api.get(endpoints.patrols.incidents, { params: { page_size: 100 } }),
+      ]);
+
+      const shiftsData = shiftsRes.data.results || shiftsRes.data || [];
+      const incidentsData = incidentsRes.data.results || incidentsRes.data || [];
+
+      saveOfflineShifts(shiftsData);
+      saveOfflineIncidents(incidentsData);
+    } catch (cacheError) {
+      console.warn("Unable to cache offline user data:", cacheError);
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
@@ -33,7 +51,7 @@ export default function LoginPage() {
 
     if (offlineMode) {
       if (!offlineUser) {
-        setError("No offline credentials saved. Connect online first to cache a user.");
+        setError("No offline credentials saved. Connect online first to save a user.");
         setLoading(false);
         return;
       }
@@ -62,7 +80,7 @@ export default function LoginPage() {
         password: form.password,
       });
       auth.login({ access: data.access, refresh: data.refresh, user: data.user });
-      setOfflinePin(data.user?.pin || form.pin || "");
+      await cacheUserData();
       const destination = data.user?.role === "admin" ? "/admin" : "/guard";
       navigate(destination);
     } catch (requestError) {

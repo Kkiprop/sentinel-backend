@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   FiMail, 
@@ -10,6 +10,7 @@ import {
   FiAlertCircle 
 } from "react-icons/fi";
 import { useAuth } from "../../contexts/AuthContext.jsx";
+import { getOfflinePin, setOfflinePin } from "../../lib/auth";
 
 export default function GuardProfilePage() {
   const { user, logout } = useAuth();
@@ -27,6 +28,36 @@ export default function GuardProfilePage() {
     }
     return user?.email ? user.email.slice(0, 2).toUpperCase() : "GO";
   }, [user]);
+
+  const [pinInput, setPinInput] = useState("");
+  const [pinStatus, setPinStatus] = useState("");
+  const [pinConfigured, setPinConfigured] = useState(false);
+
+  useEffect(() => {
+    setPinConfigured(Boolean(getOfflinePin()));
+  }, []);
+
+  const handlePinChange = (event) => {
+    const digits = event.target.value.replace(/\D/g, "").slice(0, 4);
+    setPinInput(digits);
+  };
+
+  const savePin = () => {
+    if (!/^\d{4}$/.test(pinInput)) {
+      setPinStatus("Enter a valid 4-digit PIN.");
+      return;
+    }
+    setOfflinePin(pinInput);
+    setPinConfigured(true);
+    setPinStatus("Offline PIN saved locally. Offline login is now enabled.");
+    setPinInput("");
+  };
+
+  const clearPin = () => {
+    setOfflinePin("");
+    setPinConfigured(false);
+    setPinStatus("Offline PIN cleared.");
+  };
 
   const handleLogout = async () => {
     try {
@@ -194,6 +225,49 @@ export default function GuardProfilePage() {
                     <span style={{ fontSize: "0.95rem", color: "#334155", fontWeight: 600 }}>{user?.company ? `Company ${user.company}` : "Mombasa Headquarters"}</span>
                   </div>
                 </div>
+              </div>
+            </section>
+
+            {/* Offline PIN Setup Block */}
+            <section style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <span style={{ margin: "0 0 0.15rem 0.25rem", fontSize: "0.75rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Offline PIN Access
+              </span>
+              <div style={{ backgroundColor: "#ffffff", borderRadius: "1rem", border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(15, 23, 42, 0.015)", padding: "1rem 1.25rem" }}>
+                <p style={{ margin: 0, fontSize: "0.9rem", color: "#475569" }}>
+                  {pinConfigured ? "Offline PIN is configured. Email login will be disabled when offline." : "Set a 4-digit PIN for offline access."}
+                </p>
+                <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "1rem", alignItems: "center" }}>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="\\d{4}"
+                    maxLength={4}
+                    value={pinInput}
+                    onChange={handlePinChange}
+                    placeholder="1234"
+                    style={{ width: "7rem", padding: "0.75rem 1rem", borderRadius: "0.75rem", border: "1px solid #cbd5e1", fontSize: "0.95rem", color: "#0f172a" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={savePin}
+                    className="btn-tap-effect"
+                    style={{ padding: "0.75rem 1rem", borderRadius: "0.75rem", border: "none", background: "#2563eb", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Save PIN
+                  </button>
+                  {pinConfigured && (
+                    <button
+                      type="button"
+                      onClick={clearPin}
+                      className="btn-tap-effect"
+                      style={{ padding: "0.75rem 1rem", borderRadius: "0.75rem", border: "1px solid #f1f5f9", background: "#ffffff", color: "#475569", cursor: "pointer" }}
+                    >
+                      Clear PIN
+                    </button>
+                  )}
+                </div>
+                {pinStatus ? <p style={{ marginTop: "0.75rem", color: "#475569", fontSize: "0.9rem" }}>{pinStatus}</p> : null}
               </div>
             </section>
 

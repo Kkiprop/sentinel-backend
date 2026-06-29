@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { FiMenu, FiX, FiBell, FiUser, FiChevronRight } from "react-icons/fi";
+import { FiMenu, FiX, FiBell, FiUser, FiChevronRight, FiWifi, FiWifiOff, FiRefreshCw } from "react-icons/fi";
 import { useAuth } from "../../contexts/AuthContext.jsx"; // Importing to populate user card data
+import useNetworkStatus from "../../lib/useNetworkStatus.jsx";
+import { syncOfflineQueue } from "../../lib/offline.js";
 
 export default function GuardShell({ title = "Guard Tour", subtitle = "Patrol operations", links, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuth();
+  const network = useNetworkStatus();
 
   const userEmail = user?.email || "guard@dakada.com";
   const initials = userEmail.substring(0, 2).toUpperCase();
@@ -100,6 +103,34 @@ export default function GuardShell({ title = "Guard Tour", subtitle = "Patrol op
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.35rem 0.75rem", borderRadius: "0.85rem", background: network.online ? "#ecfdf5" : "#fef2f2", color: network.online ? "#166534" : "#991b1b", fontWeight: 700, border: `1px solid ${network.online ? "#bbf7d0" : "#fecaca"}` }}>
+            {network.online ? <FiWifi size={16} /> : <FiWifiOff size={16} />}
+            <span style={{ fontSize: "0.78rem" }}>
+              {network.online ? "Online" : "Offline"}
+            </span>
+          </div>
+
+          {network.online && network.pending > 0 ? (
+            <button
+              onClick={() => syncOfflineQueue()}
+              type="button"
+              title="Sync pending offline actions"
+              style={{
+                border: "none",
+                background: "#f8fafc",
+                width: "2.6rem",
+                height: "2.6rem",
+                borderRadius: "0.85rem",
+                display: "grid",
+                placeItems: "center",
+                cursor: "pointer",
+                color: "#475569"
+              }}
+            >
+              <FiRefreshCw size={18} />
+            </button>
+          ) : null}
+
           <button
             style={{
               border: "none",

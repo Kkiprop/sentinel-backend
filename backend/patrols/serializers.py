@@ -19,10 +19,6 @@ class ShiftSerializer(serializers.ModelSerializer):
             'status',
             'start_time',
             'end_time',
-            'start_latitude',
-            'start_longitude',
-            'end_latitude',
-            'end_longitude',
         ]
         
 
@@ -137,10 +133,6 @@ class ShiftCalendarSerializer(serializers.ModelSerializer):
             'status',
             'start_time',
             'end_time',
-            'start_latitude',
-            'start_longitude',
-            'end_latitude',
-            'end_longitude',
             'patrol_log_count',
             'incident_count',
             'duration_minutes',

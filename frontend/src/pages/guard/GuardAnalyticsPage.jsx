@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { FiChevronLeft, FiChevronRight, FiClock, FiMapPin, FiCheckCircle } from "react-icons/fi";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
+import { loadOfflineShifts } from "../../lib/offline.js";
 
 export default function GuardShiftsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -39,8 +40,14 @@ export default function GuardShiftsPage() {
         setShiftsData(rawData);
       })
       .catch(() => {
-        setError("Unable to load shift logs.");
-        setShiftsData([]);
+        const cached = loadOfflineShifts().map(normalizeShift);
+        if (cached.length) {
+          setShiftsData(cached);
+          setError("Offline: showing cached shift logs.");
+        } else {
+          setError("Unable to load shift logs.");
+          setShiftsData([]);
+        }
       })
       .finally(() => setLoading(false));
   }, [currentDate]);

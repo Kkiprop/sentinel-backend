@@ -22,7 +22,6 @@ export function AuthProvider({ children }) {
   const logout = () => {
     clearAuthTokens();
     clearAuthUser();
-    clearOfflineAuth();
     setUser(null);
   };
 

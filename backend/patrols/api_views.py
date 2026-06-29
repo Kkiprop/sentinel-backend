@@ -27,7 +27,7 @@ class SiteAdminViewSet(ModelViewSet):
 
 class ShiftAdminViewSet(ModelViewSet):
     serializer_class = ShiftAdminSerializer
-    permission_classes = [IsAuthenticated, IsAdminRole]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Shift.objects.filter(site__company=self.request.user.company)

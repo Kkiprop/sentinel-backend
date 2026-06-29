@@ -9,6 +9,7 @@ const defaultState = {
   sites: [],
   scans: [],
   incidents: [],
+  shifts: [],
   visitors: [],
 };
 
@@ -36,6 +37,22 @@ function saveStorage(data) {
 }
 
 export const isOnline = () => typeof navigator !== "undefined" && navigator.onLine;
+
+export function getNetworkStatus() {
+  return {
+    online: isOnline(),
+    pending: getPendingCount(),
+  };
+}
+
+function broadcastNetworkState() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("offline-sync-state", {
+      detail: getNetworkStatus(),
+    })
+  );
+}
 
 export function getPendingQueue() {
   return parseStorage().queue || [];
@@ -66,12 +83,34 @@ export function saveCachedSites(sites) {
 }
 
 export function appendLocalRecord(type, record) {
-  if (!type || !["scans", "incidents", "visitors"].includes(type)) return;
+  if (!type || !["scans", "incidents", "visitors", "shifts"].includes(type)) return;
   const data = parseStorage();
   const list = Array.isArray(data[type]) ? data[type] : [];
   list.unshift(record);
   data[type] = list.slice(0, MAX_LOCAL_RECORDS);
   saveStorage(data);
+}
+
+export function saveOfflineShifts(shifts) {
+  const data = parseStorage();
+  data.shifts = Array.isArray(shifts) ? shifts : [];
+  saveStorage(data);
+}
+
+export function loadOfflineShifts() {
+  const data = parseStorage();
+  return data.shifts || [];
+}
+
+export function saveOfflineIncidents(incidents) {
+  const data = parseStorage();
+  data.incidents = Array.isArray(incidents) ? incidents : [];
+  saveStorage(data);
+}
+
+export function loadOfflineIncidents() {
+  const data = parseStorage();
+  return data.incidents || [];
 }
 
 export function loadLocalRecords(type) {
@@ -90,6 +129,7 @@ export function enqueueOfflineAction(action) {
   queued.push(prepared);
   data.queue = queued;
   saveStorage(data);
+  broadcastNetworkState();
   return prepared;
 }
 
@@ -99,6 +139,7 @@ export function removeOfflineAction(id) {
     ? data.queue.filter((item) => item.id !== id)
     : [];
   saveStorage(data);
+  broadcastNetworkState();
 }
 
 async function sendOfflineAction(action) {
@@ -116,7 +157,10 @@ async function sendOfflineAction(action) {
 export async function syncOfflineQueue() {
   if (!isOnline()) return;
   const queue = getPendingQueue();
-  if (!queue.length) return;
+  if (!queue.length) {
+    broadcastNetworkState();
+    return;
+  }
 
   const status = [];
   for (const action of queue.slice()) {
@@ -155,13 +199,21 @@ export async function syncOfflineQueue() {
     }
   }
 
+  broadcastNetworkState();
   return status;
 }
 
 export function initOfflineSync() {
   if (typeof window === "undefined") return;
-  window.addEventListener("online", () => {
-    syncOfflineQueue();
-  });
+  const updateState = () => {
+    broadcastNetworkState();
+    if (isOnline()) {
+      syncOfflineQueue();
+    }
+  };
+
+  window.addEventListener("online", updateState);
+  window.addEventListener("offline", updateState);
+  broadcastNetworkState();
   syncOfflineQueue();
 }
