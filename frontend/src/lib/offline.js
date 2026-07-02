@@ -1,8 +1,7 @@
+import Dexie from "dexie";
 import api from "./api";
 
-const STORAGE_KEY = "sentinel-offline-storage";
 const MAX_LOCAL_RECORDS = 120;
-
 const defaultState = {
   queue: [],
   shift: null,
@@ -11,7 +10,29 @@ const defaultState = {
   incidents: [],
   shifts: [],
   visitors: [],
+  offlineShifts: [],
+  offlineIncidents: [],
 };
+
+const supportIndexedDb = typeof window !== "undefined" && typeof indexedDB !== "undefined";
+const db = supportIndexedDb
+  ? new Dexie("SentinelOfflineDB")
+  : null;
+
+if (db) {
+  db.version(1).stores({
+    queue: "&id,createdAt",
+    sites: "id",
+    scans: "++_localId,created_at",
+    incidents: "++_localId,created_at",
+    shifts: "++_localId,created_at",
+    visitors: "++_localId,created_at",
+    metadata: "&key",
+  });
+}
+
+let storageState = { ...defaultState };
+let storageInitialized = false;
 
 export const isNetworkError = (error) => {
   if (!error) return false;
@@ -20,20 +41,119 @@ export const isNetworkError = (error) => {
   return ["Network Error", "Failed to fetch", "ERR_NETWORK"].some((term) => message.includes(term));
 };
 
-function parseStorage() {
+function getLocalStorageData() {
   if (typeof window === "undefined") return { ...defaultState };
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) return { ...defaultState };
   try {
+    const raw = window.localStorage.getItem("sentinel-offline-storage");
+    if (!raw) return { ...defaultState };
     return JSON.parse(raw);
   } catch (err) {
     return { ...defaultState };
   }
 }
 
-function saveStorage(data) {
+function saveLocalStorageData(data) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  window.localStorage.setItem("sentinel-offline-storage", JSON.stringify(data));
+}
+
+function normalizeRecords(records) {
+  return records.map((record) => ({
+    ...record,
+    created_at: record.created_at || record.createdAt || new Date().toISOString(),
+  }));
+}
+
+async function openDatabase() {
+  if (!db) return;
+  if (!db.isOpen()) {
+    await db.open();
+  }
+}
+
+async function loadIndexedState() {
+  if (!db) return { ...defaultState };
+
+  await openDatabase();
+
+  const [queue, sites, scans, incidents, shifts, visitors, shiftState, offlineShifts, offlineIncidents] = await Promise.all([
+    db.queue.orderBy("createdAt").toArray(),
+    db.sites.toArray(),
+    db.scans.orderBy("created_at").reverse().limit(MAX_LOCAL_RECORDS).toArray(),
+    db.incidents.orderBy("created_at").reverse().limit(MAX_LOCAL_RECORDS).toArray(),
+    db.shifts.orderBy("created_at").reverse().limit(MAX_LOCAL_RECORDS).toArray(),
+    db.visitors.orderBy("created_at").reverse().limit(MAX_LOCAL_RECORDS).toArray(),
+    db.metadata.get("shiftState"),
+    db.metadata.get("offlineShifts"),
+    db.metadata.get("offlineIncidents"),
+  ]);
+
+  return {
+    queue: queue || [],
+    shift: shiftState?.value || null,
+    sites: sites || [],
+    scans: normalizeRecords(scans || []),
+    incidents: normalizeRecords(incidents || []),
+    shifts: normalizeRecords(shifts || []),
+    visitors: normalizeRecords(visitors || []),
+    offlineShifts: offlineShifts?.value || [],
+    offlineIncidents: offlineIncidents?.value || [],
+  };
+}
+
+async function saveStateToIndexedDb(data) {
+  if (!db) return;
+
+  await openDatabase();
+
+  await db.transaction("rw", db.queue, db.sites, db.scans, db.incidents, db.shifts, db.visitors, db.metadata, async () => {
+    await db.queue.clear();
+    if (data.queue?.length) await db.queue.bulkPut(data.queue);
+
+    await db.sites.clear();
+    if (data.sites?.length) await db.sites.bulkPut(data.sites);
+
+    await db.scans.clear();
+    if (data.scans?.length) await db.scans.bulkAdd(normalizeRecords(data.scans));
+
+    await db.incidents.clear();
+    if (data.incidents?.length) await db.incidents.bulkAdd(normalizeRecords(data.incidents));
+
+    await db.shifts.clear();
+    if (data.shifts?.length) await db.shifts.bulkAdd(normalizeRecords(data.shifts));
+
+    await db.visitors.clear();
+    if (data.visitors?.length) await db.visitors.bulkAdd(normalizeRecords(data.visitors));
+
+    await db.metadata.put({ key: "shiftState", value: data.shift ?? null });
+    await db.metadata.put({ key: "offlineShifts", value: data.offlineShifts || [] });
+    await db.metadata.put({ key: "offlineIncidents", value: data.offlineIncidents || [] });
+  });
+}
+
+function parseStorage() {
+  if (!storageInitialized) {
+    if (supportIndexedDb) return { ...defaultState };
+    const data = getLocalStorageData();
+    storageInitialized = true;
+    storageState = data;
+    return data;
+  }
+
+  return storageState;
+}
+
+function saveStorage(data) {
+  storageState = data;
+
+  if (supportIndexedDb) {
+    saveStateToIndexedDb(data).catch((err) => {
+      console.warn("Failed to persist offline state to IndexedDB:", err);
+    });
+    return;
+  }
+
+  saveLocalStorageData(data);
 }
 
 export const isOnline = () => typeof navigator !== "undefined" && navigator.onLine;
@@ -84,33 +204,36 @@ export function saveCachedSites(sites) {
 
 export function appendLocalRecord(type, record) {
   if (!type || !["scans", "incidents", "visitors", "shifts"].includes(type)) return;
+
   const data = parseStorage();
   const list = Array.isArray(data[type]) ? data[type] : [];
-  list.unshift(record);
-  data[type] = list.slice(0, MAX_LOCAL_RECORDS);
+  const normalized = { ...record, created_at: record.created_at || new Date().toISOString() };
+  const updated = [normalized, ...list].slice(0, MAX_LOCAL_RECORDS);
+
+  data[type] = updated;
   saveStorage(data);
 }
 
 export function saveOfflineShifts(shifts) {
   const data = parseStorage();
-  data.shifts = Array.isArray(shifts) ? shifts : [];
+  data.offlineShifts = Array.isArray(shifts) ? shifts : [];
   saveStorage(data);
 }
 
 export function loadOfflineShifts() {
   const data = parseStorage();
-  return data.shifts || [];
+  return data.offlineShifts || [];
 }
 
 export function saveOfflineIncidents(incidents) {
   const data = parseStorage();
-  data.incidents = Array.isArray(incidents) ? incidents : [];
+  data.offlineIncidents = Array.isArray(incidents) ? incidents : [];
   saveStorage(data);
 }
 
 export function loadOfflineIncidents() {
   const data = parseStorage();
-  return data.incidents || [];
+  return data.offlineIncidents || [];
 }
 
 export function loadLocalRecords(type) {
@@ -187,7 +310,10 @@ export async function syncOfflineQueue() {
         }
         if (action.type === "end") {
           saveOfflineShiftState({
-            active: false, endedAt: new Date().toISOString(), syncedAt: new Date().toISOString() });
+            active: false,
+            endedAt: new Date().toISOString(),
+            syncedAt: new Date().toISOString(),
+          });
         }
       }
       status.push({ id: action.id, success: true });
@@ -203,8 +329,23 @@ export async function syncOfflineQueue() {
   return status;
 }
 
-export function initOfflineSync() {
+export async function initOfflineSync() {
   if (typeof window === "undefined") return;
+
+  if (supportIndexedDb) {
+    try {
+      storageState = await loadIndexedState();
+      storageInitialized = true;
+    } catch (error) {
+      console.warn("IndexedDB init failed, falling back to localStorage.", error);
+      storageState = getLocalStorageData();
+      storageInitialized = true;
+    }
+  } else {
+    storageState = getLocalStorageData();
+    storageInitialized = true;
+  }
+
   const updateState = () => {
     broadcastNetworkState();
     if (isOnline()) {

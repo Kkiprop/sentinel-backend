@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { FiHome, FiMap, FiMapPin, FiClock, FiShield, FiAlertTriangle, FiUsers, FiTarget, FiBriefcase } from "react-icons/fi";
+import { FiHome, FiMap, FiMapPin, FiClock, FiShield, FiAlertTriangle, FiUsers, FiTarget, FiBriefcase, FiActivity } from "react-icons/fi";
 import PortalShell from "./components/layout/PortalShell";
 import GuardShell from "./components/layout/GuardShell.jsx";
 import LoginPage from "./pages/auth/LoginPage";
@@ -24,7 +24,7 @@ import { RequireAuth, useAuth } from "./contexts/AuthContext.jsx";
 
 const guardLinks = [
   { to: "/guard", label: "Home", icon: <FiHome size={20} /> },
-  { to: "/guard/analytics", label: "Analytics", icon: <FiMapPin size={20} /> },
+  { to: "/guard/analytics", label: "Analytics", icon: <FiActivity size={20} /> },
   { to: "/guard/profile", label: "Profile", icon: <FiUsers size={20} /> },
 ];
 

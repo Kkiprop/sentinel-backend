@@ -1,17 +1,24 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
-import { FiMenu, FiX, FiBell, FiUser, FiChevronRight, FiWifi, FiWifiOff, FiRefreshCw } from "react-icons/fi";
+import { NavLink, useNavigate } from "react-router-dom";
+import { FiMenu, FiX, FiBell, FiUser, FiChevronRight, FiWifi, FiWifiOff, FiRefreshCw, FiLogOut } from "react-icons/fi";
 import { useAuth } from "../../contexts/AuthContext.jsx"; // Importing to populate user card data
 import useNetworkStatus from "../../lib/useNetworkStatus.jsx";
 import { syncOfflineQueue } from "../../lib/offline.js";
 
 export default function GuardShell({ title = "Guard Tour", subtitle = "Patrol operations", links, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const network = useNetworkStatus();
 
   const userEmail = user?.email || "guard@dakada.com";
   const initials = userEmail.substring(0, 2).toUpperCase();
+
+  const handleLogout = () => {
+    setMenuOpen(false);
+    logout();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <div 
@@ -223,8 +230,32 @@ export default function GuardShell({ title = "Guard Tour", subtitle = "Patrol op
         </div>
 
         {/* Subtle Brand Footer inside sidebar */}
-        <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid #f1f5f9", fontSize: "0.7rem", color: "#94a3b8", fontWeight: 500, backgroundColor: "#fafafa" }}>
-          v2.4.0 • Secured Patrol Shell
+        <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid #f1f5f9", backgroundColor: "#fafafa" }}>
+          <button
+            type="button"
+            onClick={handleLogout}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5rem",
+              padding: "0.85rem 1rem",
+              borderRadius: "0.85rem",
+              background: "#ef4444",
+              color: "#ffffff",
+              border: "none",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: "0.9rem"
+            }}
+          >
+            <FiLogOut size={16} />
+            Logout
+          </button>
+          <div style={{ marginTop: "0.85rem", fontSize: "0.7rem", color: "#94a3b8", fontWeight: 500 }}>
+            v2.4.0 • Secured Patrol Shell
+          </div>
         </div>
       </aside>
 

@@ -133,6 +133,7 @@ export default function GuardProfilePage() {
         {/* Main Workspace Scroll Body Container */}
         <main style={{ 
           padding: "1.5rem", 
+          paddingBottom: "8rem",
           display: "flex", 
           flexDirection: "column", 
           justifyContent: "space-between", 

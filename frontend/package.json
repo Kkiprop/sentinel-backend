@@ -15,6 +15,7 @@
   "dependencies": {
     "@capacitor/core": "^7.4.3",
     "axios": "^1.12.2",
+    "dexie": "^3.2.7",
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "react": "^19.2.0",

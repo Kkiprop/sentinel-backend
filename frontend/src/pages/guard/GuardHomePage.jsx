@@ -286,6 +286,7 @@ export default function GuardHomePage() {
       saveOfflineShiftState({ active: false, endedAt: payload.created_at });
       setMessage("Shift ended successfully.");
       setMapCoordinates([]);
+      await loadSites();
     } catch (endError) {
       if (!isOnline() || isNetworkError(endError)) {
         const payload = {
@@ -305,6 +306,7 @@ export default function GuardHomePage() {
         setActiveShift(false);
         setMessage("Offline: shift ended locally and queued for sync.");
         setMapCoordinates([]);
+        await loadSites();
       } else {
         setError(endError?.response?.data?.error || endError.message || "Unable to end shift.");
       }

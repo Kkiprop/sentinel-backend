@@ -73,7 +73,7 @@ export default function GuardDashboardPage() {
         flexDirection: "column",
         boxShadow: "0 0 24px rgba(15, 23, 42, 0.02)",
         borderLeft: "1px solid #eef2f6",
-        borderRight: "1px solid #eef2f6"
+        borderRight: "1px solid #eef2f6",
       }}>
         
         {/* Core Mobile Header Platform Layout */}
@@ -86,7 +86,7 @@ export default function GuardDashboardPage() {
           borderBottom: "1px solid #f1f5f9",
           position: "sticky",
           top: 0,
-          zIndex: 50
+          zIndex: 50,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <div style={{ width: "0.5rem", height: "0.5rem", borderRadius: "50%", backgroundColor: stats?.active_shift ? "#22c55e" : "#94a3b8" }} className={stats?.active_shift ? "active-pulse" : ""} />
@@ -195,7 +195,7 @@ export default function GuardDashboardPage() {
                   border: "1px solid #e2e8f0",
                   borderRadius: "1rem",
                   cursor: "pointer",
-                  boxShadow: "0 4px 6px rgba(15, 23, 42, 0.01)"
+                  boxShadow: "0 4px 6px rgba(15, 23, 42, 0.01)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
@@ -252,7 +252,7 @@ export default function GuardDashboardPage() {
                   borderRadius: "1rem",
                   cursor: "pointer",
                   boxShadow: "0 4px 6px rgba(15, 23, 42, 0.01)",
-                  marginBottom: "1.5rem"
+                  marginBottom: "4rem"
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
