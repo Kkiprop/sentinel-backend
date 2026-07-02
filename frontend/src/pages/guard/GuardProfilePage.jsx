@@ -10,7 +10,7 @@ import {
   FiAlertCircle 
 } from "react-icons/fi";
 import { useAuth } from "../../contexts/AuthContext.jsx";
-import { getOfflinePin, setOfflinePin } from "../../lib/auth";
+import { getOfflinePin, loadOfflinePin, setOfflinePin } from "../../lib/auth";
 
 export default function GuardProfilePage() {
   const { user, logout } = useAuth();
@@ -34,7 +34,12 @@ export default function GuardProfilePage() {
   const [pinConfigured, setPinConfigured] = useState(false);
 
   useEffect(() => {
-    setPinConfigured(Boolean(getOfflinePin()));
+    const loadPin = async () => {
+      const savedPin = await loadOfflinePin();
+      setPinConfigured(Boolean(savedPin));
+    };
+
+    loadPin();
   }, []);
 
   const handlePinChange = (event) => {

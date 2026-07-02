@@ -1,3 +1,5 @@
+import { saveOfflineAuthUser, loadOfflineAuthUser, saveOfflineAuthPin, loadOfflineAuthPin, clearOfflineAuthData } from "./offline.js";
+
 const ACCESS_TOKEN_KEY = "senti_access_token";
 const REFRESH_TOKEN_KEY = "senti_refresh_token";
 const AUTH_USER_KEY = "senti_user";
@@ -42,9 +44,18 @@ export function getOfflineUser() {
   return stored ? JSON.parse(stored) : null;
 }
 
+export async function loadOfflineUser() {
+  const loaded = await loadOfflineAuthUser();
+  if (loaded) return loaded;
+  return getOfflineUser();
+}
+
 export function setOfflineUser(user) {
   if (!user) {
     localStorage.removeItem(OFFLINE_USER_KEY);
+    saveOfflineAuthUser(null).catch((err) => {
+      console.warn("Unable to clear offline auth user in IndexedDB:", err);
+    });
     return;
   }
 
@@ -56,25 +67,44 @@ export function setOfflineUser(user) {
   };
 
   localStorage.setItem(OFFLINE_USER_KEY, JSON.stringify(offlineUser));
+  saveOfflineAuthUser(offlineUser).catch((err) => {
+    console.warn("Unable to persist offline auth user in IndexedDB:", err);
+  });
 }
 
 export function getOfflinePin() {
   return localStorage.getItem(OFFLINE_PIN_KEY);
 }
 
+export async function loadOfflinePin() {
+  const loaded = await loadOfflineAuthPin();
+  if (loaded) return loaded;
+  return getOfflinePin();
+}
+
 export function setOfflinePin(pin) {
   if (/^\d{4}$/.test(pin)) {
     localStorage.setItem(OFFLINE_PIN_KEY, pin);
+    saveOfflineAuthPin(pin).catch((err) => {
+      console.warn("Unable to persist offline PIN in IndexedDB:", err);
+    });
   } else {
     localStorage.removeItem(OFFLINE_PIN_KEY);
+    saveOfflineAuthPin("").catch((err) => {
+      console.warn("Unable to clear offline PIN in IndexedDB:", err);
+    });
   }
 }
 
-export function verifyOfflinePin(pin) {
-  return pin && localStorage.getItem(OFFLINE_PIN_KEY) === pin;
+export async function verifyOfflinePin(pin) {
+  const storedPin = await loadOfflinePin();
+  return pin && storedPin === pin;
 }
 
 export function clearOfflineAuth() {
   localStorage.removeItem(OFFLINE_USER_KEY);
   localStorage.removeItem(OFFLINE_PIN_KEY);
+  clearOfflineAuthData().catch((err) => {
+    console.warn("Unable to clear offline auth data in IndexedDB:", err);
+  });
 }

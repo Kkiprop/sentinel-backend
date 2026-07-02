@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../lib/api";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { endpoints } from "../../lib/endpoints";
-import { getOfflineUser, getOfflinePin, verifyOfflinePin } from "../../lib/auth";
+import { loadOfflineUser, loadOfflinePin, verifyOfflinePin } from "../../lib/auth";
 import { saveOfflineShifts, saveOfflineIncidents } from "../../lib/offline.js";
+import { FiLock, FiShield, FiWifi, FiSmartphone } from "react-icons/fi";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -13,9 +14,18 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
+  const [offlineUser, setOfflineUser] = useState(null);
+  const [offlinePin, setOfflinePin] = useState("");
 
-  const offlineUser = useMemo(() => getOfflineUser(), []);
-  const offlinePin = useMemo(() => getOfflinePin(), []);
+  useEffect(() => {
+    const loadOfflineCredentials = async () => {
+      const [savedUser, savedPin] = await Promise.all([loadOfflineUser(), loadOfflinePin()]);
+      setOfflineUser(savedUser);
+      setOfflinePin(savedPin || "");
+    };
+
+    loadOfflineCredentials();
+  }, []);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -27,23 +37,6 @@ export default function LoginPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const cacheUserData = async () => {
-    try {
-      const [shiftsRes, incidentsRes] = await Promise.all([
-        api.get(endpoints.patrols.shifts, { params: { page_size: 100 } }),
-        api.get(endpoints.patrols.incidents, { params: { page_size: 100 } }),
-      ]);
-
-      const shiftsData = shiftsRes.data.results || shiftsRes.data || [];
-      const incidentsData = incidentsRes.data.results || incidentsRes.data || [];
-
-      saveOfflineShifts(shiftsData);
-      saveOfflineIncidents(incidentsData);
-    } catch (cacheError) {
-      console.warn("Unable to cache offline user data:", cacheError);
-    }
-  };
-
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
@@ -51,115 +44,123 @@ export default function LoginPage() {
 
     if (offlineMode) {
       if (!offlineUser) {
-        setError("No offline credentials saved. Connect online first to save a user.");
+        setError("Offline access unavailable. Please log in online first.");
         setLoading(false);
         return;
       }
-
-      if (!/^\d{4}$/.test(form.pin)) {
-        setError("Enter a 4-digit numeric PIN.");
+      if (!(await verifyOfflinePin(form.pin))) {
+        setError("Invalid PIN.");
         setLoading(false);
         return;
       }
-
-      if (!verifyOfflinePin(form.pin)) {
-        setError("Incorrect offline PIN.");
-        setLoading(false);
-        return;
-      }
-
       auth.loginOffline(offlineUser);
       navigate(offlineUser.role === "admin" ? "/admin" : "/guard");
-      setLoading(false);
       return;
     }
 
     try {
-      const { data } = await api.post(endpoints.auth.login, {
-        email: form.email,
-        password: form.password,
-      });
+      const { data } = await api.post(endpoints.auth.login, { email: form.email, password: form.password });
       auth.login({ access: data.access, refresh: data.refresh, user: data.user });
-      await cacheUserData();
-      const destination = data.user?.role === "admin" ? "/admin" : "/guard";
-      navigate(destination);
-    } catch (requestError) {
-      setError("Login failed. Check your credentials and try again.");
+      navigate(data.user?.role === "admin" ? "/admin" : "/guard");
+    } catch (e) {
+      setError("Login failed. Check your credentials.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page auth-page">
-      <form className="auth-card" onSubmit={handleSubmit}>
-        <p className="status-pill">SENTINEL AUTH</p>
-        <h1>Command Access</h1>
-        <p className="auth-copy">Sign in to continue to guard operations.</p>
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "#ffffff",
+      padding: "1.5rem",
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    }}>
+      <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: "400px" }}>
+        {/* Header Section */}
+        <div style={{ textAlign: "center", marginBottom: "3rem" }}>
+          <div style={{ 
+            width: "4rem", height: "4rem", background: "#f1f5f9", 
+            borderRadius: "1.25rem", display: "grid", placeItems: "center",
+            margin: "0 auto 1.5rem", color: "#2563eb"
+          }}>
+            <FiShield size={32} />
+          </div>
+          <h1 style={{ fontSize: "1.75rem", fontWeight: 700, color: "#1e293b", marginBottom: "0.5rem" }}>
+            {offlineMode ? "Offline Access" : "Command Access"}
+          </h1>
+          <p style={{ color: "#64748b", fontSize: "0.95rem" }}>
+            {offlineMode ? "Enter your security PIN to continue." : "Sign in to your account."}
+          </p>
+        </div>
 
-        {!offlineMode ? (
-          <>
-            <label>
-              Email
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="guard@sentinel.com"
-                required
-              />
-            </label>
+        {/* Input Group */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {!offlineMode ? (
+            <>
+              <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="Work Email" style={inputStyle} required />
+              <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="Password" style={inputStyle} required />
+            </>
+          ) : (
+            <input type="text" name="pin" value={form.pin} onChange={handleChange} placeholder="0000" maxLength={4} style={{...inputStyle, textAlign: "center", fontSize: "1.5rem", letterSpacing: "0.5rem"}} inputMode="numeric" required />
+          )}
+        </div>
 
-            <label>
-              Password
-              <input
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                placeholder="********"
-                required
-              />
-            </label>
-          </>
-        ) : (
-          <>
-            <label>
-              Offline PIN
-              <input
-                type="text"
-                name="pin"
-                value={form.pin}
-                onChange={handleChange}
-                placeholder="1234"
-                inputMode="numeric"
-                required
-              />
-            </label>
-            {!offlineUser ? (
-              <p className="auth-copy">Offline access unavailable until a user has first logged in online.</p>
-            ) : (
-              <p className="auth-copy">Use the 4-digit PIN for offline access.</p>
-            )}
-          </>
-        )}
+        {error && <p style={{ color: "#e11d48", fontSize: "0.85rem", marginTop: "1rem", textAlign: "center", fontWeight: 600 }}>{error}</p>}
 
-        {error ? <p className="form-error">{error}</p> : null}
-
-        <button className="btn btn-primary" type="submit" disabled={loading}>
-          {loading ? "Processing..." : offlineMode ? "Unlock Offline" : "Sign In"}
+        {/* Action Buttons */}
+        <button type="submit" disabled={loading} style={primaryButtonStyle}>
+          {loading ? "Authenticating..." : offlineMode ? "Unlock" : "Sign In"}
         </button>
 
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => setOfflineMode((prev) => !prev)}
-          style={{ marginTop: "1rem" }}
-        >
-          {offlineMode ? "Use Online Login" : "Use Offline PIN"}
+        <button type="button" onClick={() => setOfflineMode(!offlineMode)} style={secondaryButtonStyle}>
+          {offlineMode ? <><FiWifi size={16}/> Use Online Login</> : <><FiSmartphone size={16}/> Use Offline PIN</>}
         </button>
       </form>
     </div>
   );
 }
+
+const inputStyle = {
+  width: "100%",
+  padding: "1rem",
+  borderRadius: "0.85rem",
+  border: "1px solid #e2e8f0",
+  backgroundColor: "#f8fafc",
+  fontSize: "0.95rem",
+  boxSizing: "border-box",
+  outline: "none",
+  transition: "border 0.2s"
+};
+
+const primaryButtonStyle = {
+  width: "100%",
+  padding: "1rem",
+  background: "#2563eb",
+  color: "#ffffff",
+  border: "none",
+  borderRadius: "0.85rem",
+  marginTop: "1.5rem",
+  fontWeight: 700,
+  fontSize: "1rem",
+  cursor: "pointer"
+};
+
+const secondaryButtonStyle = {
+  width: "100%",
+  padding: "1rem",
+  background: "transparent",
+  color: "#64748b",
+  border: "none",
+  marginTop: "0.5rem",
+  fontWeight: 600,
+  fontSize: "0.9rem",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "0.5rem"
+};

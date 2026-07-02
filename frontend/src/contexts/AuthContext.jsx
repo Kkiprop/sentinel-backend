@@ -5,7 +5,7 @@ import { Navigate } from "react-router-dom";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const initialUser = getUser() || getOfflineUser();
+  const initialUser = getUser();
   const [user, setUser] = useState(initialUser);
 
   const login = ({ access, refresh, user }) => {

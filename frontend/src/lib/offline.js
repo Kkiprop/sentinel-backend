@@ -131,6 +131,83 @@ async function saveStateToIndexedDb(data) {
   });
 }
 
+async function saveOfflineMetadata(key, value) {
+  if (!db) return;
+  await openDatabase();
+  await db.metadata.put({ key, value });
+}
+
+function getLocalStorageAuthUser() {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem("senti_offline_user");
+  return raw ? JSON.parse(raw) : null;
+}
+
+function getLocalStorageAuthPin() {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem("senti_offline_pin");
+}
+
+async function migrateLocalStorageToIndexedDb() {
+  if (!db) return;
+  await openDatabase();
+
+  const [queueCount, metadataCount] = await Promise.all([
+    db.queue.count(),
+    db.metadata.count(),
+  ]);
+
+  if (queueCount > 0 || metadataCount > 0) return;
+
+  const localData = getLocalStorageData();
+  if (localData && Object.keys(localData).length) {
+    await saveStateToIndexedDb(localData);
+  }
+
+  const localOfflineUser = getLocalStorageAuthUser();
+  if (localOfflineUser) {
+    await saveOfflineAuthUser(localOfflineUser);
+  }
+
+  const localOfflinePin = getLocalStorageAuthPin();
+  if (localOfflinePin) {
+    await saveOfflineAuthPin(localOfflinePin);
+  }
+}
+
+async function loadOfflineMetadata(key) {
+  if (!db) return null;
+  await openDatabase();
+  const record = await db.metadata.get(key);
+  return record?.value ?? null;
+}
+
+async function clearOfflineMetadata(key) {
+  if (!db) return;
+  await openDatabase();
+  await db.metadata.delete(key);
+}
+
+export async function saveOfflineAuthUser(user) {
+  await saveOfflineMetadata("offlineUser", user || null);
+}
+
+export async function loadOfflineAuthUser() {
+  return loadOfflineMetadata("offlineUser");
+}
+
+export async function saveOfflineAuthPin(pin) {
+  await saveOfflineMetadata("offlinePin", pin || "");
+}
+
+export async function loadOfflineAuthPin() {
+  return loadOfflineMetadata("offlinePin");
+}
+
+export async function clearOfflineAuthData() {
+  await Promise.all([clearOfflineMetadata("offlineUser"), clearOfflineMetadata("offlinePin")]);
+}
+
 function parseStorage() {
   if (!storageInitialized) {
     if (supportIndexedDb) return { ...defaultState };
@@ -334,6 +411,7 @@ export async function initOfflineSync() {
 
   if (supportIndexedDb) {
     try {
+      await migrateLocalStorageToIndexedDb();
       storageState = await loadIndexedState();
       storageInitialized = true;
     } catch (error) {
