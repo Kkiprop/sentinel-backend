@@ -1,5 +1,5 @@
 from django.utils import timezone
-from .models import Checkpoint, Incident, PatrolLog, Shift, Site
+from .models import Checkpoint, Incident, PatrolLog, Shift, Site, GuardLocation
 from .utils import calculate_distance
 
 
@@ -28,6 +28,18 @@ def start_shift(user, data):
         start_latitude=data['latitude'],
         start_longitude=data['longitude'],
     )
+
+    # Also create/update GuardLocation for live tracking
+    try:
+        GuardLocation.objects.update_or_create(
+            guard=user,
+            defaults={
+                'latitude': data['latitude'],
+                'longitude': data['longitude'],
+            }
+        )
+    except Exception:
+        pass
 
     return shift
 
@@ -164,6 +176,18 @@ def process_qr_scan(user, data):
 
         client_id=data['client_id']
     )
+
+    # Also update GuardLocation on each QR scan for live tracking
+    try:
+        GuardLocation.objects.update_or_create(
+            guard=user,
+            defaults={
+                'latitude': data['latitude'],
+                'longitude': data['longitude'],
+            }
+        )
+    except Exception:
+        pass
 
     return patrol_log
 
