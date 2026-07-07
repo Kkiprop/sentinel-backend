@@ -31,7 +31,7 @@ urlpatterns = [
 ]
 
 from rest_framework.routers import DefaultRouter
-from .api_views import CheckpointAdminViewSet, SiteAdminViewSet, ShiftAdminViewSet, VisitorAdminViewSet
+from .api_views import CheckpointAdminViewSet, SiteAdminViewSet, ShiftAdminViewSet, VisitorAdminViewSet, LiveTrackingAPIView
 
 router = DefaultRouter()
 router.register(r'manage/sites', SiteAdminViewSet, basename='manage-sites')
@@ -40,3 +40,7 @@ router.register(r'manage/checkpoints', CheckpointAdminViewSet, basename='manage-
 router.register(r'manage/visitors', VisitorAdminViewSet, basename='manage-visitors')
 
 urlpatterns += router.urls
+
+urlpatterns += [
+    path('manage/live-tracking/', LiveTrackingAPIView.as_view(), name='live-tracking'),
+]

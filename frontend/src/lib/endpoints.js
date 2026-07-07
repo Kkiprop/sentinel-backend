@@ -22,6 +22,7 @@ export const endpoints = {
     adminSites: "/api/patrols/manage/sites/",
     adminShifts: "/api/patrols/manage/shifts/",
     adminCheckpoints: "/api/patrols/manage/checkpoints/",
-    adminVisitors: "/api/patrols/manage/visitors/"
+    adminVisitors: "/api/patrols/manage/visitors/",
+    liveTracking: "/api/patrols/manage/live-tracking/"
   }
 };
