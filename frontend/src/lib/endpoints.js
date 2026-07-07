@@ -30,6 +30,7 @@ export const endpoints = {
     contracts: "/api/secure/contracts/",
     payments: "/api/secure/payments/",
     invoices: "/api/secure/invoices/",
+    sendInvoice: (id) => `/api/secure/crm/invoices/${id}/send/`,
     dashboard: "/api/secure/crm/dashboard/"
   }
 };

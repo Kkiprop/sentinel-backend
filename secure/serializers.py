@@ -47,13 +47,14 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 class InvoiceSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.name', read_only=True)
+    client_email = serializers.EmailField(source='client.email', read_only=True)
     contract_title = serializers.CharField(source='contract.title', read_only=True)
 
     class Meta:
         model = Invoice
         fields = [
-            'id', 'client', 'client_name', 'contract', 'contract_title',
+            'id', 'client', 'client_name', 'client_email', 'contract', 'contract_title',
             'invoice_number', 'amount', 'issue_date', 'due_date',
             'status', 'notes', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['created_at', 'updated_at', 'client_name', 'contract_title']
+        read_only_fields = ['created_at', 'updated_at', 'client_name', 'client_email', 'contract_title']

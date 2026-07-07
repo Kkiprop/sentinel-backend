@@ -2,8 +2,11 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
+from django.core.mail import send_mail
+from django.conf import settings
 from datetime import timedelta
 
 from .models import Client, Contract, Payment, Invoice
@@ -61,6 +64,76 @@ class InvoiceViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(company=self.request.user.company)
+
+
+class SendInvoiceAPIView(APIView):
+    """
+    Sends an invoice email to the client.
+    """
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def post(self, request, invoice_id):
+        try:
+            invoice = Invoice.objects.select_related('client', 'company').get(
+                id=invoice_id,
+                company=request.user.company
+            )
+        except Invoice.DoesNotExist:
+            return Response(
+                {"error": "Invoice not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        client = invoice.client
+        if not client.email:
+            return Response(
+                {"error": "Client has no email address on file"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        subject = f"Invoice {invoice.invoice_number} from {invoice.company.name}"
+        message = f"""
+Dear {client.name},
+
+Please find your invoice details below:
+
+Invoice Number: {invoice.invoice_number}
+Amount: KES {invoice.amount:,.2f}
+Issue Date: {invoice.issue_date}
+Due Date: {invoice.due_date}
+Status: {invoice.get_status_display()}
+
+Notes: {invoice.notes or 'N/A'}
+
+Thank you for your business.
+
+Regards,
+{invoice.company.name}
+        """
+
+        try:
+            send_mail(
+                subject=subject,
+                message=message.strip(),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[client.email],
+                fail_silently=False,
+            )
+
+            # Auto-update status to 'sent' if it was 'draft'
+            if invoice.status == 'draft':
+                invoice.status = 'sent'
+                invoice.save(update_fields=['status'])
+
+            return Response({
+                "success": True,
+                "message": f"Invoice sent to {client.email}"
+            })
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to send email: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class CRMDashboardAPIView(APIView):

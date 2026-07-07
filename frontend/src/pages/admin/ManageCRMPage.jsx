@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { FiUsers, FiFileText, FiDollarSign, FiCreditCard, FiPlus, FiEdit2, FiTrash2, FiX, FiCheck, FiAlertCircle, FiRefreshCw } from "react-icons/fi";
+import { FiUsers, FiFileText, FiDollarSign, FiCreditCard, FiPlus, FiEdit2, FiTrash2, FiX, FiCheck, FiAlertCircle, FiRefreshCw, FiSend, FiMail } from "react-icons/fi";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
 
@@ -325,6 +325,17 @@ export default function ManageCRMPage() {
         );
 
       case "invoices":
+        const handleSendInvoice = async (invoice) => {
+          if (!window.confirm(`Send invoice ${invoice.invoice_number} to ${invoice.client_email || invoice.client_name}?`)) return;
+          setError("");
+          try {
+            await api.post(endpoints.crm.sendInvoice(invoice.id));
+            fetchData();
+          } catch (err) {
+            setError(err?.response?.data?.error || "Failed to send invoice");
+          }
+        };
+
         return (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
@@ -332,8 +343,8 @@ export default function ManageCRMPage() {
                 <tr style={{ borderBottom: "2px solid #e5e7eb", textAlign: "left" }}>
                   <th style={{ padding: "0.75rem 0.5rem", color: "#6b7280", fontWeight: 600 }}>Invoice #</th>
                   <th style={{ padding: "0.75rem 0.5rem", color: "#6b7280", fontWeight: 600 }}>Client</th>
+                  <th style={{ padding: "0.75rem 0.5rem", color: "#6b7280", fontWeight: 600 }}>Email</th>
                   <th style={{ padding: "0.75rem 0.5rem", color: "#6b7280", fontWeight: 600 }}>Amount</th>
-                  <th style={{ padding: "0.75rem 0.5rem", color: "#6b7280", fontWeight: 600 }}>Issue Date</th>
                   <th style={{ padding: "0.75rem 0.5rem", color: "#6b7280", fontWeight: 600 }}>Due Date</th>
                   <th style={{ padding: "0.75rem 0.5rem", color: "#6b7280", fontWeight: 600 }}>Status</th>
                   <th style={{ padding: "0.75rem 0.5rem", color: "#6b7280", fontWeight: 600 }}>Actions</th>
@@ -344,12 +355,23 @@ export default function ManageCRMPage() {
                   <tr key={invoice.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                     <td style={{ padding: "0.75rem 0.5rem", fontWeight: 600, color: "#111827" }}>{invoice.invoice_number}</td>
                     <td style={{ padding: "0.75rem 0.5rem", color: "#374151" }}>{invoice.client_name}</td>
+                    <td style={{ padding: "0.75rem 0.5rem", color: "#374151", fontSize: "0.8rem" }}>
+                      {invoice.client_email ? (
+                        <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                          <FiMail size={12} /> {invoice.client_email}
+                        </span>
+                      ) : (
+                        <span style={{ color: "#dc2626", fontSize: "0.75rem" }}>No email</span>
+                      )}
+                    </td>
                     <td style={{ padding: "0.75rem 0.5rem", fontWeight: 600, color: "#111827" }}>{formatCurrency(invoice.amount)}</td>
-                    <td style={{ padding: "0.75rem 0.5rem", color: "#374151" }}>{formatDate(invoice.issue_date)}</td>
                     <td style={{ padding: "0.75rem 0.5rem", color: "#374151" }}>{formatDate(invoice.due_date)}</td>
                     <td style={{ padding: "0.75rem 0.5rem" }}><StatusBadge status={invoice.status} /></td>
-                    <td style={{ padding: "0.75rem 0.5rem" }}>
-                      <button onClick={() => openEditForm(invoice, "invoice")} style={{ border: "none", background: "none", cursor: "pointer", color: "#2563eb", marginRight: "0.5rem" }}><FiEdit2 size={14} /></button>
+                    <td style={{ padding: "0.75rem 0.5rem", whiteSpace: "nowrap" }}>
+                      <button onClick={() => handleSendInvoice(invoice)} disabled={!invoice.client_email} title={invoice.client_email ? `Send invoice to ${invoice.client_email}` : "No client email on file"} style={{ border: "none", background: invoice.client_email ? "#059669" : "#d1d5db", cursor: invoice.client_email ? "pointer" : "not-allowed", color: "#fff", borderRadius: "0.25rem", padding: "0.25rem 0.5rem", fontSize: "0.75rem", fontWeight: 600, marginRight: "0.375rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                        <FiSend size={12} /> Send
+                      </button>
+                      <button onClick={() => openEditForm(invoice, "invoice")} style={{ border: "none", background: "none", cursor: "pointer", color: "#2563eb", marginRight: "0.375rem" }}><FiEdit2 size={14} /></button>
                       <button onClick={() => handleDelete(invoice.id, "invoice")} style={{ border: "none", background: "none", cursor: "pointer", color: "#dc2626" }}><FiTrash2 size={14} /></button>
                     </td>
                   </tr>
