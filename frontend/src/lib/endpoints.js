@@ -24,5 +24,12 @@ export const endpoints = {
     adminCheckpoints: "/api/patrols/manage/checkpoints/",
     adminVisitors: "/api/patrols/manage/visitors/",
     liveTracking: "/api/patrols/manage/live-tracking/"
+  },
+  crm: {
+    clients: "/api/secure/clients/",
+    contracts: "/api/secure/contracts/",
+    payments: "/api/secure/payments/",
+    invoices: "/api/secure/invoices/",
+    dashboard: "/api/secure/crm/dashboard/"
   }
 };
