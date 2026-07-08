@@ -1,7 +1,24 @@
+import re
+
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 
 from .models import User, Company, Organisation, Subscription
+
+
+class WebsiteField(serializers.URLField):
+    default_error_messages = {'invalid': 'Enter a valid URL.'}
+
+    def to_internal_value(self, data):
+        if data is None:
+            return None
+        if isinstance(data, str):
+            data = data.strip()
+            if data == "":
+                return ""
+            if not re.match(r'^[a-zA-Z][a-zA-Z0-9+\-.]*://', data):
+                data = f"https://{data}"
+        return super().to_internal_value(data)
 
 
 class LoginSerializer(serializers.Serializer):
@@ -27,6 +44,8 @@ class LoginSerializer(serializers.Serializer):
 
 
 class CompanySerializer(serializers.ModelSerializer):
+    website = WebsiteField(allow_blank=True, required=False)
+
     class Meta:
         model = Company
         fields = [

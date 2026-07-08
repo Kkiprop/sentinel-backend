@@ -6,7 +6,11 @@ export const endpoints = {
     companies: "/api/auth/companies/",
   organisations: "/api/auth/organisations/",
   profile: "/api/auth/profile/",
-  subscription: "/api/auth/subscription/"
+  subscription: "/api/auth/subscription/",
+  subscribe: "/api/auth/subscription/subscribe/",
+  cancelSubscription: "/api/auth/subscription/cancel/",
+  billingHistory: "/api/auth/billing-history/",
+  billingPlans: "/api/auth/billing-plans/"
   },
   patrols: {
     startShift: "/api/patrols/shifts/start/",
