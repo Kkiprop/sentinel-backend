@@ -205,3 +205,13 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Email Configuration
+DEFAULT_FROM_EMAIL = os.getenv('DJANGO_DEFAULT_FROM_EMAIL', 'noreply@gofast.co.ke')
+EMAIL_BACKEND = os.getenv('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.getenv('DJANGO_EMAIL_HOST', '')
+EMAIL_PORT = int(os.getenv('DJANGO_EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('DJANGO_EMAIL_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('DJANGO_EMAIL_PASSWORD', '')
+EMAIL_USE_TLS = env_bool('DJANGO_EMAIL_USE_TLS', True)
+EMAIL_USE_SSL = env_bool('DJANGO_EMAIL_USE_SSL', False)

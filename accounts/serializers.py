@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 
-from .models import User, Company, Organisation
+from .models import User, Company, Organisation, Subscription
 
 
 class LoginSerializer(serializers.Serializer):
@@ -32,7 +32,17 @@ class CompanySerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "email",
+            "phone",
+            "address",
+            "website",
+            "logo",
+            "description",
+            "is_active",
+            "created_at",
+            "updated_at",
         ]
+        read_only_fields = ["created_at", "updated_at", "is_active"]
 
 
 class OrganisationSerializer(serializers.ModelSerializer):
@@ -95,3 +105,35 @@ class UserSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    days_remaining = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Subscription
+        fields = [
+            "id",
+            "company",
+            "company_name",
+            "plan",
+            "status",
+            "amount",
+            "start_date",
+            "end_date",
+            "auto_renew",
+            "payment_method",
+            "payment_reference",
+            "notes",
+            "days_remaining",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at", "company_name", "days_remaining"]
+
+    def get_days_remaining(self, obj):
+        if obj.end_date:
+            delta = obj.end_date - obj.start_date
+            return delta.days
+        return None

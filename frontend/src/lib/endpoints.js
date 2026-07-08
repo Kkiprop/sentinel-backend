@@ -4,7 +4,9 @@ export const endpoints = {
     refresh: "/api/auth/token/refresh/",
     users: "/api/auth/users/",
     companies: "/api/auth/companies/",
-    organisations: "/api/auth/organisations/"
+  organisations: "/api/auth/organisations/",
+  profile: "/api/auth/profile/",
+  subscription: "/api/auth/subscription/"
   },
   patrols: {
     startShift: "/api/patrols/shifts/start/",

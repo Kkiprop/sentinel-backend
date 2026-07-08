@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { FiHome, FiMap, FiMapPin, FiClock, FiShield, FiAlertTriangle, FiUsers, FiTarget, FiBriefcase, FiActivity, FiDollarSign } from "react-icons/fi";
+import { FiHome, FiMap, FiMapPin, FiClock, FiShield, FiAlertTriangle, FiUsers, FiTarget, FiBriefcase, FiActivity, FiDollarSign, FiSettings } from "react-icons/fi";
 import PortalShell from "./components/layout/PortalShell";
 import GuardShell from "./components/layout/GuardShell.jsx";
 import LoginPage from "./pages/auth/LoginPage";
@@ -21,6 +21,7 @@ import ManageIncidentsPage from "./pages/admin/ManageIncidentsPage";
 import ManageVisitorsPage from "./pages/admin/ManageVisitorsPage";
 import ManageCheckpointsPage from "./pages/admin/ManageCheckpointsPage";
 import ManageCRMPage from "./pages/admin/ManageCRMPage";
+import ManageSettingsPage from "./pages/admin/ManageSettingsPage";
 import { RequireAuth, useAuth } from "./contexts/AuthContext.jsx";
 
 const guardLinks = [
@@ -39,7 +40,8 @@ const adminLinks = [
   { to: "/admin/hr", label: "HR", icon: <FiBriefcase size={18} /> },
   { to: "/admin/visitors", label: "Visitors", icon: <FiUsers size={18} /> },
   { to: "/admin/incidents", label: "Incidents", icon: <FiAlertTriangle size={18} /> },
-  { to: "/admin/crm", label: "Clients", icon: <FiDollarSign size={18} /> }
+  { to: "/admin/crm", label: "Clients", icon: <FiDollarSign size={18} /> },
+  { to: "/admin/settings", label: "Settings", icon: <FiSettings size={18} /> }
 ];
 
 function GuardPortal() {
@@ -80,6 +82,7 @@ function AdminPortal() {
         <Route path="visitors" element={<ManageVisitorsPage />} />
         <Route path="incidents" element={<ManageIncidentsPage />} />
         <Route path="crm" element={<ManageCRMPage />} />
+        <Route path="settings" element={<ManageSettingsPage />} />
       </Routes>
     </PortalShell>
   );
