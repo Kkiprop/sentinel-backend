@@ -2,7 +2,11 @@ import { useEffect, useState, useMemo } from "react";
 import { FiChevronLeft, FiChevronRight, FiClock, FiMapPin, FiCheckCircle } from "react-icons/fi";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
-import { loadOfflineShifts } from "../../lib/offline.js";
+import {
+  loadOfflineShifts,
+  saveCachedShiftsByMonth,
+  loadCachedShiftsByMonth,
+} from "../../lib/offline.js";
 
 export default function GuardShiftsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -23,6 +27,7 @@ export default function GuardShiftsPage() {
   useEffect(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
+    const yearMonth = `${year}-${String(month).padStart(2, "0")}`;
 
     setLoading(true);
     setError("");
@@ -38,8 +43,17 @@ export default function GuardShiftsPage() {
       .then((response) => {
         const rawData = (response.data?.results || []).map(normalizeShift);
         setShiftsData(rawData);
+        saveCachedShiftsByMonth(yearMonth, rawData);
       })
-      .catch(() => {
+      .catch(async () => {
+        // Try month-specific cache first
+        const monthCached = await loadCachedShiftsByMonth(yearMonth);
+        if (monthCached.length) {
+          setShiftsData(monthCached);
+          setError("Offline: showing cached shift logs for this month.");
+          return;
+        }
+        // Fall back to generic offline shifts
         const cached = loadOfflineShifts().map(normalizeShift);
         if (cached.length) {
           setShiftsData(cached);

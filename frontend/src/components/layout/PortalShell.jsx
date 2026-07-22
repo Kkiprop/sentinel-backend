@@ -49,8 +49,16 @@ export default function PortalShell({ title, subtitle, links, children }) {
           flexShrink: 0,        // Ensures sidebar width remains uncompressed
         }}
       >
-        <p className="portal-kicker">SYSTEM ONLINE</p>
-        <h1>{title}</h1>
+        <div className="sidebar-brand">
+          <div className="brand-mark">
+            <span className="brand-dot" aria-hidden="true" />
+            <span>
+              SENTINEL<span className="brand-accent">SYNAPSE</span>
+            </span>
+          </div>
+        </div>
+        {/* <p className="portal-kicker">SYSTEM ONLINE</p> */}
+        {/* <h3>{title}</h3> */}
         <p className="portal-subtitle">{subtitle}</p>
         <nav className="portal-nav">
           {links.map((item) => (

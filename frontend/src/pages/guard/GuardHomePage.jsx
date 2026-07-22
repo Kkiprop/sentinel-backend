@@ -21,6 +21,8 @@ import {
   saveCachedSites,
   loadOfflineShiftState,
   saveOfflineShiftState,
+  saveCachedActiveShiftMarkers,
+  loadCachedActiveShiftMarkers,
   isOnline,
   isNetworkError,
 } from "../../lib/offline.js";
@@ -99,21 +101,29 @@ export default function GuardHomePage() {
 
       if (processedActiveMarkers.length > 0) {
         setMapCoordinates(processedActiveMarkers);
+        saveCachedActiveShiftMarkers(processedActiveMarkers);
       } else {
         // Fallback to local self tracking coordinates if cluster returns vacant
         navigator.geolocation.getCurrentPosition((pos) => {
-          setMapCoordinates([
-            {
-              id: "fallback-self-pin",
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              label: "Your Location (No remote active sessions running)",
-            },
-          ]);
+          const selfMarker = [{
+            id: "fallback-self-pin",
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            label: "Your Location (No remote active sessions running)",
+          }];
+          setMapCoordinates(selfMarker);
+          saveCachedActiveShiftMarkers(selfMarker);
         });
       }
     } catch (err) {
       console.error("Error connecting to live tracking shifts cluster API", err);
+      // Try cache first
+      const cachedMarkers = await loadCachedActiveShiftMarkers();
+      if (cachedMarkers.length > 0) {
+        setMapCoordinates(cachedMarkers);
+        return;
+      }
+      // Fall back to GPS
       navigator.geolocation.getCurrentPosition((pos) => {
         setMapCoordinates([
           {

@@ -318,6 +318,83 @@ export function loadLocalRecords(type) {
   return data[type] || [];
 }
 
+/* ------------------------------------------------------------------ */
+/*  Dashboard Metrics Caching                                         */
+/* ------------------------------------------------------------------ */
+export async function saveCachedDashboardMetrics(metrics) {
+  await saveOfflineMetadata("dashboardMetrics", metrics ?? null);
+}
+
+export async function loadCachedDashboardMetrics() {
+  return loadOfflineMetadata("dashboardMetrics");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shifts By Month Caching (keyed by "YYYY-MM")                      */
+/* ------------------------------------------------------------------ */
+export async function saveCachedShiftsByMonth(yearMonth, shifts) {
+  await saveOfflineMetadata(`shifts:${yearMonth}`, shifts ?? []);
+}
+
+export async function loadCachedShiftsByMonth(yearMonth) {
+  return loadOfflineMetadata(`shifts:${yearMonth}`) || [];
+}
+
+/* ------------------------------------------------------------------ */
+/*  Patrol Logs Caching                                               */
+/* ------------------------------------------------------------------ */
+export async function saveCachedPatrolLogs(logs) {
+  await saveOfflineMetadata("patrolLogs", logs ?? []);
+}
+
+export async function loadCachedPatrolLogs() {
+  return loadOfflineMetadata("patrolLogs") || [];
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shift Filters Caching                                             */
+/* ------------------------------------------------------------------ */
+export async function saveCachedShiftFilters(filters) {
+  await saveOfflineMetadata("shiftFilters", filters ?? null);
+}
+
+export async function loadCachedShiftFilters() {
+  return loadOfflineMetadata("shiftFilters");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Incident Filters Caching                                          */
+/* ------------------------------------------------------------------ */
+export async function saveCachedIncidentFilters(filters) {
+  await saveOfflineMetadata("incidentFilters", filters ?? null);
+}
+
+export async function loadCachedIncidentFilters() {
+  return loadOfflineMetadata("incidentFilters");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Team / Site Assignments Caching                                   */
+/* ------------------------------------------------------------------ */
+export async function saveCachedTeamAssignments(assignments) {
+  await saveOfflineMetadata("teamAssignments", assignments ?? []);
+}
+
+export async function loadCachedTeamAssignments() {
+  return loadOfflineMetadata("teamAssignments") || [];
+}
+
+/* ------------------------------------------------------------------ */
+/*  Active Shift Map Markers Caching                                  */
+/* ------------------------------------------------------------------ */
+export async function saveCachedActiveShiftMarkers(markers) {
+  await saveOfflineMetadata("activeShiftMarkers", markers ?? []);
+}
+
+export async function loadCachedActiveShiftMarkers() {
+  return loadOfflineMetadata("activeShiftMarkers") || [];
+}
+
 export function enqueueOfflineAction(action) {
   const data = parseStorage();
   const queued = Array.isArray(data.queue) ? data.queue : [];

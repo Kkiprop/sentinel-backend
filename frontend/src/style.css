@@ -311,6 +311,43 @@ a {
   margin: 0;
 }
 
+.sidebar-brand {
+  margin-bottom: 1rem;
+}
+
+.sidebar-brand .brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.sidebar-brand .brand-dot {
+  width: 1.9rem;
+  aspect-ratio: 1;
+  border: 1px solid rgba(0, 255, 153, 0.4);
+  border-radius: 0.6rem;
+  box-shadow: 0 0 16px rgba(0, 255, 153, 0.2);
+  position: relative;
+}
+
+.sidebar-brand .brand-dot::after {
+  content: "";
+  width: 0.7rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--primary);
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+
+.sidebar-brand .brand-accent {
+  color: var(--primary);
+}
+
 .portal-sidebar h1 {
   margin: 0.15rem 0 0.15rem;
   font-size: 1.55rem;

@@ -249,7 +249,7 @@ export default function ManageCheckpointsPage() {
                     onMouseOut={(e) => { e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.color = "#334155"; }}
                   >
                     <FiMapPin size={14} />
-                    Poll Device GPS
+                    Use Current Location
                   </button>
                   <button 
                     className="btn btn-secondary" 
@@ -258,7 +258,7 @@ export default function ManageCheckpointsPage() {
                     style={{ ...inlineLocationActionButtonStyles, borderColor: showMapPicker ? "#00E699" : "#cbd5e1", color: showMapPicker ? "#00cc85" : "#334155", background: showMapPicker ? "#f0fdf4" : "#ffffff" }}
                   >
                     <FiMap size={14} />
-                    {showMapPicker ? "Close Map Surface" : "Pick from Canvas Map"}
+                    {showMapPicker ? "Close Map Surface" : "Pick from Map"}
                   </button>
                 </div>
               </div>

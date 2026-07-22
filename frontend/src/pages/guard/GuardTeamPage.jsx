@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
+import {
+  saveCachedTeamAssignments,
+  loadCachedTeamAssignments,
+} from "../../lib/offline.js";
 
 export default function GuardTeamPage() {
   const [sites, setSites] = useState([]);
@@ -9,8 +13,19 @@ export default function GuardTeamPage() {
   useEffect(() => {
     api
       .get(endpoints.patrols.sites)
-      .then((response) => setSites(response.data))
-      .catch(() => setError("Unable to load team assignments."));
+      .then((response) => {
+        setSites(response.data);
+        saveCachedTeamAssignments(response.data);
+      })
+      .catch(async () => {
+        const cached = await loadCachedTeamAssignments();
+        if (cached.length) {
+          setSites(cached);
+          setError("Offline: showing cached team assignments.");
+        } else {
+          setError("Unable to load team assignments.");
+        }
+      });
   }, []);
 
   return (

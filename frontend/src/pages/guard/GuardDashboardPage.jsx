@@ -13,6 +13,12 @@ import {
 import StatCard from "../../components/common/StatCard";
 import api from "../../lib/api";
 import { endpoints } from "../../lib/endpoints";
+import {
+  isOnline,
+  isNetworkError,
+  saveCachedDashboardMetrics,
+  loadCachedDashboardMetrics,
+} from "../../lib/offline.js";
 
 export default function GuardDashboardPage() {
   const navigate = useNavigate();
@@ -22,8 +28,19 @@ export default function GuardDashboardPage() {
   useEffect(() => {
     api
       .get(endpoints.patrols.dashboard)
-      .then((response) => setStats(response.data))
-      .catch(() => setError("Unable to load live dashboard telemetry metrics."));
+      .then((response) => {
+        setStats(response.data);
+        saveCachedDashboardMetrics(response.data);
+      })
+      .catch(async () => {
+        const cached = await loadCachedDashboardMetrics();
+        if (cached) {
+          setStats(cached);
+          setError("Offline: showing cached dashboard metrics.");
+        } else {
+          setError("Unable to load live dashboard telemetry metrics.");
+        }
+      });
   }, []);
 
   const shiftCount = stats?.shift_count ?? stats?.total_patrol_logs ?? "—";
