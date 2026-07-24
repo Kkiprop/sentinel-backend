@@ -131,7 +131,7 @@ async function saveStateToIndexedDb(data) {
   });
 }
 
-async function saveOfflineMetadata(key, value) {
+export async function saveOfflineMetadata(key, value) {
   if (!db) return;
   await openDatabase();
   await db.metadata.put({ key, value });
@@ -175,7 +175,7 @@ async function migrateLocalStorageToIndexedDb() {
   }
 }
 
-async function loadOfflineMetadata(key) {
+export async function loadOfflineMetadata(key) {
   if (!db) return null;
   await openDatabase();
   const record = await db.metadata.get(key);

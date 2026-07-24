@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { FiHome, FiMap, FiMapPin, FiClock, FiShield, FiAlertTriangle, FiUsers, FiTarget, FiBriefcase, FiActivity, FiDollarSign, FiSettings } from "react-icons/fi";
+import { FiHome, FiMap, FiMapPin, FiClock, FiShield, FiAlertTriangle, FiUsers, FiTarget, FiBriefcase, FiActivity, FiDollarSign, FiSettings, FiMessageSquare, FiBox } from "react-icons/fi";
 import PortalShell from "./components/layout/PortalShell";
 import GuardShell from "./components/layout/GuardShell.jsx";
 import LoginPage from "./pages/auth/LoginPage";
@@ -11,6 +11,7 @@ import ShiftPage from "./pages/guard/ShiftPage";
 import CheckpointsPage from "./pages/guard/CheckpointsPage";
 import IncidentsPage from "./pages/guard/IncidentsPage";
 import GuardTeamPage from "./pages/guard/GuardTeamPage";
+import ChatPage from "./pages/guard/ChatPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
 import ManageSitesPage from "./pages/admin/ManageSitesPage";
 import ManageTrackingPage from "./pages/admin/ManageTrackingPage";
@@ -22,11 +23,13 @@ import ManageVisitorsPage from "./pages/admin/ManageVisitorsPage";
 import ManageCheckpointsPage from "./pages/admin/ManageCheckpointsPage";
 import ManageCRMPage from "./pages/admin/ManageCRMPage";
 import ManageSettingsPage from "./pages/admin/ManageSettingsPage";
+import ManageAssetsPage from "./pages/admin/ManageAssetsPage";
 import { RequireAuth, useAuth } from "./contexts/AuthContext.jsx";
 
 const guardLinks = [
   { to: "/guard", label: "Home", icon: <FiHome size={20} /> },
   { to: "/guard/analytics", label: "Analytics", icon: <FiActivity size={20} /> },
+  { to: "/guard/chat", label: "Chat", icon: <FiMessageSquare size={20} /> },
   { to: "/guard/profile", label: "Profile", icon: <FiUsers size={20} /> },
 ];
 
@@ -41,19 +44,20 @@ const adminLinks = [
   { to: "/admin/visitors", label: "Visitors", icon: <FiUsers size={18} /> },
   { to: "/admin/incidents", label: "Incidents", icon: <FiAlertTriangle size={18} /> },
   { to: "/admin/crm", label: "Clients", icon: <FiDollarSign size={18} /> },
+  { to: "/admin/assets", label: "Assets", icon: <FiBox size={18} /> },
   { to: "/admin/settings", label: "Settings", icon: <FiSettings size={18} /> }
 ];
 
 function GuardPortal() {
   return (
     <GuardShell
-      // title="Guard Ops"
       links={guardLinks}
     >
       <Routes>
         <Route index element={<GuardHomePage />} />
         <Route path="analytics" element={<GuardDashboardPage />} />
         <Route path="my-shift" element={<GuardAnalyticsPage />} />
+        <Route path="chat" element={<ChatPage />} />
         <Route path="profile" element={<GuardProfilePage />} />
         <Route path="shift" element={<ShiftPage />} />
         <Route path="checkpoints" element={<CheckpointsPage />} />
@@ -68,7 +72,6 @@ function AdminPortal() {
   return (
     <PortalShell
       title="Admin Command"
-      // subtitle="Manage sites, guards, shifts, and critical incidents in real time."
       links={adminLinks}
     >
       <Routes>
@@ -83,6 +86,7 @@ function AdminPortal() {
         <Route path="incidents" element={<ManageIncidentsPage />} />
         <Route path="crm" element={<ManageCRMPage />} />
         <Route path="settings" element={<ManageSettingsPage />} />
+        <Route path="assets" element={<ManageAssetsPage />} />
       </Routes>
     </PortalShell>
   );

@@ -4,14 +4,14 @@ export const endpoints = {
     refresh: "/api/auth/token/refresh/",
     users: "/api/auth/users/",
     companies: "/api/auth/companies/",
-  organisations: "/api/auth/organisations/",
-  profile: "/api/auth/profile/",
-  subscription: "/api/auth/subscription/",
-  subscribe: "/api/auth/subscription/subscribe/",
-  cancelSubscription: "/api/auth/subscription/cancel/",
-  billingHistory: "/api/auth/billing-history/",
-  billingPlans: "/api/auth/billing-plans/"
-  },
+    organisations: "/api/auth/organisations/",
+    profile: "/api/auth/profile/",
+    subscription: "/api/auth/subscription/",
+    subscribe: "/api/auth/subscription/subscribe/",
+    cancelSubscription: "/api/auth/subscription/cancel/",
+    billingHistory: "/api/auth/billing-history/",
+    billingPlans: "/api/auth/billing-plans/"
+   },
   patrols: {
     startShift: "/api/patrols/shifts/start/",
     endShift: "/api/patrols/shifts/end/",
@@ -30,7 +30,7 @@ export const endpoints = {
     adminCheckpoints: "/api/patrols/manage/checkpoints/",
     adminVisitors: "/api/patrols/manage/visitors/",
     liveTracking: "/api/patrols/manage/live-tracking/"
-  },
+   },
   crm: {
     clients: "/api/secure/clients/",
     contracts: "/api/secure/contracts/",
@@ -38,5 +38,24 @@ export const endpoints = {
     invoices: "/api/secure/invoices/",
     sendInvoice: (id) => `/api/secure/crm/invoices/${id}/send/`,
     dashboard: "/api/secure/crm/dashboard/"
-  }
+   },
+  assets: {
+    categories: "/api/assets/categories/",
+    assets: "/api/assets/",
+    dashboard: "/api/assets/dashboard/",
+    assignment: (id) => `/api/assets/${id}/assignment/`,
+  },
+  communication: {
+    devices: "/api/communication/devices/",
+    notifications: "/api/communication/notifications/",
+    notificationUnreadCount: "/api/communication/notifications/unread-count/",
+    notificationMarkRead: "/api/communication/notifications/mark-read/",
+    notificationBroadcast: "/api/communication/notifications/broadcast/",
+    conversations: "/api/communication/chat/conversations/",
+    messages: "/api/communication/chat/messages/",
+    chatUnreadCount: "/api/communication/chat/unread-count/",
+    chatMarkRead: "/api/communication/chat/mark-read/",
+    startConversation: "/api/communication/chat/start-conversation/",
+    searchUsers: "/api/communication/chat/users/",
+  },
 };

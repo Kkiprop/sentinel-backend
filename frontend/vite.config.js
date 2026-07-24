@@ -2,6 +2,12 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  optimizeDeps: {
+    exclude: ["@capacitor/push-notifications"],
+  },
+  ssr: {
+    noExternal: [],
+  },
   plugins: [
     VitePWA({
       registerType: "autoUpdate",

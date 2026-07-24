@@ -59,6 +59,7 @@ ALLOWED_HOSTS = env_list(
 # Application definition
 
 INSTALLED_APPS = [
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -69,6 +70,7 @@ INSTALLED_APPS = [
     'secure',
     'patrols',
     'accounts',
+    'communication',
 
     'rest_framework',
     'rest_framework_simplejwt',
@@ -154,6 +156,25 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'Sentinel.wsgi.application'
+
+# Channels / WebSocket ASGI configuration
+ASGI_APPLICATION = 'Sentinel.asgi.application'
+
+# Channel layer — uses Redis in production, in-memory for development
+_redis_url = os.getenv('REDIS_URL', '')
+if _redis_url:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [_redis_url]},
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
 
 
 # Database

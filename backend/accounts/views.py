@@ -6,11 +6,15 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import LoginSerializer
 
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework.permissions import IsAuthenticated, BasePermission
 
-from .serializers import UserSerializer, CompanySerializer, OrganisationSerializer, SubscriptionSerializer
-from .models import User, Company, Organisation, Subscription
+from .serializers import (
+    UserSerializer, CompanySerializer, OrganisationSerializer,
+    BillingPlanSerializer, SubscriptionSerializer, PaymentSerializer, InvoiceSerializer,
+)
+from .models import User, Company, Organisation, BillingPlan, Subscription, Payment, Invoice
+from .services import start_trial, activate_subscription, cancel_subscription, check_subscription_access
 
 
 class IsAdminRole(BasePermission):
@@ -76,39 +80,123 @@ class CompanyProfileAPIView(APIView):
         return Response(serializer.errors, status=400)
 
 
-class SubscriptionAPIView(APIView):
+class BillingPlanViewSet(ReadOnlyModelViewSet):
     """
-    Get or update the current user's company subscription.
+    List available billing plans (public, no auth required for pricing page).
+    """
+    serializer_class = BillingPlanSerializer
+    permission_classes = []
+    queryset = BillingPlan.objects.filter(is_active=True)
+
+
+class MySubscriptionAPIView(APIView):
+    """
+    Get the current company's active subscription and status.
     """
     permission_classes = [IsAuthenticated, IsAdminRole]
 
     def get(self, request):
         company = request.user.company
         if not company:
-            return Response({"error": "No company associated with this user"}, status=404)
-        try:
-            subscription = Subscription.objects.get(company=company)
-            serializer = SubscriptionSerializer(subscription)
-            return Response(serializer.data)
-        except Subscription.DoesNotExist:
-            return Response(None)
+            return Response({"error": "No company associated"}, status=404)
+
+        # Check access status
+        access = check_subscription_access(company)
+
+        # Get active subscription
+        active_sub = company.get_active_subscription()
+        sub_data = None
+        if active_sub:
+            sub_data = SubscriptionSerializer(active_sub).data
+
+        # Get all subscriptions history
+        all_subs = Subscription.objects.filter(company=company)
+        all_subs_data = SubscriptionSerializer(all_subs, many=True).data
+
+        return Response({
+            'access': access,
+            'active_subscription': sub_data,
+            'subscription_history': all_subs_data,
+        })
+
+
+class SubscribeAPIView(APIView):
+    """
+    Start a trial or activate a paid subscription.
+    POST with plan_id and billing_cycle to subscribe.
+    POST with no params to start a trial.
+    """
+    permission_classes = [IsAuthenticated, IsAdminRole]
 
     def post(self, request):
         company = request.user.company
         if not company:
-            return Response({"error": "No company associated with this user"}, status=404)
+            return Response({"error": "No company associated"}, status=404)
 
-        # Check if subscription already exists
-        try:
-            subscription = Subscription.objects.get(company=company)
-            serializer = SubscriptionSerializer(subscription, data=request.data, partial=True)
-        except Subscription.DoesNotExist:
-            serializer = SubscriptionSerializer(data={**request.data, "company": company.id})
+        plan_id = request.data.get('plan_id')
+        billing_cycle = request.data.get('billing_cycle', 'monthly')
+        payment_method = request.data.get('payment_method')
+        payment_reference = request.data.get('payment_reference')
 
-        if serializer.is_valid():
-            serializer.save(company=company)
-            return Response(serializer.data)
-        return Response(serializer.errors, status=400)
+        if plan_id:
+            # Paid subscription
+            try:
+                plan = BillingPlan.objects.get(id=plan_id, is_active=True)
+            except BillingPlan.DoesNotExist:
+                return Response({"error": "Invalid plan"}, status=400)
+
+            if billing_cycle not in ['monthly', 'quarterly', 'biannual', 'annual']:
+                return Response({"error": "Invalid billing cycle"}, status=400)
+
+            subscription = activate_subscription(
+                company, plan, billing_cycle, payment_method, payment_reference
+            )
+            serializer = SubscriptionSerializer(subscription)
+            return Response(serializer.data, status=201)
+        else:
+            # Start trial
+            subscription = start_trial(company)
+            serializer = SubscriptionSerializer(subscription)
+            return Response(serializer.data, status=201)
+
+
+class CancelSubscriptionAPIView(APIView):
+    """
+    Cancel the current active subscription.
+    """
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def post(self, request):
+        company = request.user.company
+        if not company:
+            return Response({"error": "No company associated"}, status=404)
+
+        active_sub = company.get_active_subscription()
+        if not active_sub:
+            return Response({"error": "No active subscription found"}, status=400)
+
+        cancel_subscription(active_sub)
+        return Response({"message": "Subscription cancelled successfully"})
+
+
+class BillingHistoryAPIView(APIView):
+    """
+    Get billing history (payments and invoices) for the company.
+    """
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get(self, request):
+        company = request.user.company
+        if not company:
+            return Response({"error": "No company associated"}, status=404)
+
+        payments = Payment.objects.filter(company=company)[:12]
+        invoices = Invoice.objects.filter(company=company)[:12]
+
+        return Response({
+            'payments': PaymentSerializer(payments, many=True).data,
+            'invoices': InvoiceSerializer(invoices, many=True).data,
+        })
 
 
 class LoginAPIView(APIView):

@@ -27,6 +27,8 @@ urlpatterns = [
     path('api/patrols/', include('patrols.urls')),
     path('accounts/', include('accounts.urls')),
     path('api/auth/', include('accounts.urls')),
+    path('communication/', include('communication.urls')),
+    path('api/communication/', include('communication.urls')),
 ]
 
 if settings.DEBUG:

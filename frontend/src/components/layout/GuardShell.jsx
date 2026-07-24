@@ -4,6 +4,7 @@ import { FiMenu, FiX, FiBell, FiUser, FiChevronRight, FiWifi, FiWifiOff, FiRefre
 import { useAuth } from "../../contexts/AuthContext.jsx"; // Importing to populate user card data
 import useNetworkStatus from "../../lib/useNetworkStatus.jsx";
 import { syncOfflineQueue } from "../../lib/offline.js";
+import NotificationDropdown from "../../components/notifications/NotificationDropdown";
 
 export default function GuardShell({ title = "Guard Tour", subtitle = "Patrol operations", links, children }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -138,33 +139,7 @@ export default function GuardShell({ title = "Guard Tour", subtitle = "Patrol op
             </button>
           ) : null}
 
-          <button
-            style={{
-              border: "none",
-              background: "#f8fafc",
-              width: "2.6rem",
-              height: "2.6rem",
-              borderRadius: "0.85rem",
-              display: "grid",
-              placeItems: "center",
-              cursor: "pointer",
-              position: "relative",
-              color: "#475569"
-            }}
-            aria-label="Notifications"
-          >
-            <FiBell size={18} />
-            <span style={{
-              position: "absolute",
-              top: "0.55rem",
-              right: "0.55rem",
-              width: "0.5rem",
-              height: "0.5rem",
-              borderRadius: "50%",
-              background: "#ef4444",
-              boxShadow: "0 0 0 2px #ffffff"
-            }} />
-          </button>
+<NotificationDropdown />
         </div>
       </header>
 
