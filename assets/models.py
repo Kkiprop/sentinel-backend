@@ -105,3 +105,36 @@ class Asset(models.Model):
         if not self.warranty_end_date:
             return False
         return timezone.now().date() <= self.warranty_end_date
+
+
+class AssetAssignment(models.Model):
+    """
+    Tracks assignment history for assets.
+    """
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name="assignment_history"
+    )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="asset_assignments"
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    unassigned_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True, null=True, help_text="Reason for assignment/unassignment")
+
+    class Meta:
+        ordering = ['-assigned_at']
+        indexes = [
+            models.Index(fields=['asset', 'assigned_at']),
+            models.Index(fields=['assigned_to', 'assigned_at']),
+        ]
+
+    def __str__(self):
+        if self.assigned_to:
+            return f"{self.asset.name} assigned to {self.assigned_to.get_full_name() or self.assigned_to.email}"
+        return f"{self.asset.name} unassigned"

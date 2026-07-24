@@ -44,6 +44,10 @@ export const endpoints = {
     assets: "/api/assets/",
     dashboard: "/api/assets/dashboard/",
     assignment: (id) => `/api/assets/${id}/assignment/`,
+    assignmentHistory: "/api/assets/assignments/history/",
+    assetAssignmentHistory: (id) => `/api/assets/assignments/history/${id}/`,
+    guardAssets: (guardId) => `/api/assets/guards/${guardId}/assets/`,
+    allGuardAssets: "/api/assets/guards/assets/",
   },
   communication: {
     devices: "/api/communication/devices/",

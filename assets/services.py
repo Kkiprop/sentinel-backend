@@ -1,7 +1,7 @@
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
-from .models import Asset, AssetCategory
+from .models import Asset, AssetCategory, AssetAssignment
 
 
 def get_asset_stats(company):
@@ -58,14 +58,27 @@ def get_asset_stats(company):
     }
 
 
-def assign_asset(asset, user):
+def assign_asset(asset, user, notes=None):
     """
-    Assign an asset to a guard/user.
+    Assign an asset to a guard/user and create assignment history record.
     """
     if asset.status == 'retired' or asset.status == 'lost':
         raise ValueError(
             f"Cannot assign an asset that is {asset.get_status_display().lower()}."
         )
+
+    # Close any open assignment history records for this asset
+    AssetAssignment.objects.filter(
+        asset=asset,
+        unassigned_at__isnull=True
+    ).update(unassigned_at=timezone.now())
+
+    # Create new assignment history record
+    AssetAssignment.objects.create(
+        asset=asset,
+        assigned_to=user,
+        notes=notes
+    )
 
     asset.assigned_to = user
     asset.status = 'in_use'
@@ -73,10 +86,16 @@ def assign_asset(asset, user):
     return asset
 
 
-def unassign_asset(asset):
+def unassign_asset(asset, notes=None):
     """
-    Unassign an asset from its current user.
+    Unassign an asset from its current user and update assignment history.
     """
+    # Close the current assignment history record
+    AssetAssignment.objects.filter(
+        asset=asset,
+        unassigned_at__isnull=True
+    ).update(unassigned_at=timezone.now(), notes=notes)
+
     asset.assigned_to = None
     asset.status = 'available'
     asset.save(update_fields=['assigned_to', 'status'])

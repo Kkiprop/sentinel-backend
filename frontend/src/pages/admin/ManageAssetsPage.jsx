@@ -34,6 +34,9 @@ export default function ManageAssetsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const loadAssets = async () => {
     try {
@@ -220,6 +223,19 @@ export default function ManageAssetsPage() {
     setSelectedAsset(asset);
     setForm({ ...initialForm, assigned_to: asset.assigned_to?.toString() || "" });
     setShowAssignModal(true);
+  };
+
+  const loadAssignmentHistory = async (assetId) => {
+    setLoadingHistory(true);
+    try {
+      const response = await api.get(endpoints.assets.assetAssignmentHistory(assetId));
+      setAssignmentHistory(response.data || []);
+      setShowHistoryModal(true);
+    } catch {
+      setError("Unable to retrieve assignment history.");
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
   const getStatusBadgeStyles = (status) => {
@@ -620,13 +636,22 @@ export default function ManageAssetsPage() {
                           <button
                             type="button"
                             onClick={() => handleUnassign(asset.id)}
-                            title="Unassign"
+                            title="Return Asset"
                             style={{ padding: "0.375rem 0.625rem", background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", borderRadius: "0.25rem", fontSize: "0.75rem", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}
                           >
                             <FiX size={12} />
-                            Unassign
+                            Return
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => loadAssignmentHistory(asset.id)}
+                          title="View Assignment History"
+                          style={{ padding: "0.375rem 0.625rem", background: "#f8fafc", color: "#475569", border: "1px solid #e2e8f0", borderRadius: "0.25rem", fontSize: "0.75rem", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}
+                        >
+                          <FiFilter size={12} />
+                          History
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleEdit(asset)}
@@ -660,6 +685,80 @@ export default function ManageAssetsPage() {
             </p>
           </div>
         )}
+
+        {/* Assignment History Modal */}
+        {showHistoryModal ? (
+          <Modal title="Assignment History" onClose={() => setShowHistoryModal(false)}>
+            <div style={{ padding: "0.5rem", maxHeight: "500px", overflowY: "auto" }}>
+              {loadingHistory ? (
+                <div style={{ textAlign: "center", padding: "2rem" }}>
+                  <p style={{ color: "#64748b" }}>Loading history...</p>
+                </div>
+              ) : assignmentHistory.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                  {assignmentHistory.map((record) => (
+                    <div 
+                      key={record.id} 
+                      style={{ 
+                        padding: "1rem", 
+                        background: "#f8fafc", 
+                        borderRadius: "0.375rem", 
+                        border: "1px solid #e2e8f0",
+                        borderLeft: record.assigned_to ? "3px solid #00E699" : "3px solid #94a3b8"
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                        <div>
+                          <p style={{ margin: "0 0 0.25rem 0", fontSize: "0.875rem", fontWeight: "600", color: "#0f172a" }}>
+                            {record.assigned_to_name || "Unassigned"}
+                          </p>
+                          {record.assigned_to_email && (
+                            <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b" }}>
+                              {record.assigned_to_email}
+                            </p>
+                          )}
+                        </div>
+                        <span style={{ 
+                          padding: "0.25rem 0.5rem", 
+                          borderRadius: "0.25rem", 
+                          fontSize: "0.75rem", 
+                          fontWeight: "600",
+                          background: record.assigned_to ? "#f0fdf4" : "#f1f5f9",
+                          color: record.assigned_to ? "#166534" : "#475569"
+                        }}>
+                          {record.duration}
+                        </span>
+                      </div>
+                      
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "0.75rem", color: "#64748b" }}>
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                          <span style={{ fontWeight: "600" }}>Assigned:</span>
+                          <span>{new Date(record.assigned_at).toLocaleString()}</span>
+                        </div>
+                        {record.unassigned_at && (
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <span style={{ fontWeight: "600" }}>Unassigned:</span>
+                            <span>{new Date(record.unassigned_at).toLocaleString()}</span>
+                          </div>
+                        )}
+                        {record.notes && (
+                          <div style={{ marginTop: "0.5rem", padding: "0.5rem", background: "#ffffff", borderRadius: "0.25rem", border: "1px solid #e2e8f0" }}>
+                            <span style={{ fontWeight: "600" }}>Notes: </span>
+                            {record.notes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "2rem" }}>
+                  <p style={{ fontSize: "0.875rem", color: "#64748b", margin: 0 }}>No assignment history found.</p>
+                </div>
+              )}
+            </div>
+          </Modal>
+        ) : null}
       </article>
     </section>
   );

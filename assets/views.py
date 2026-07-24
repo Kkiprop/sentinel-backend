@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
 
-from .models import Asset, AssetCategory
-from .serializers import AssetSerializer, AssetCategorySerializer
+from .models import Asset, AssetCategory, AssetAssignment
+from .serializers import AssetSerializer, AssetCategorySerializer, AssetAssignmentSerializer
 from .services import (
     get_asset_stats,
     assign_asset,
@@ -134,8 +134,9 @@ class AssetAssignmentAPIView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
+            notes = request.data.get('notes', '')
             try:
-                assign_asset(asset, guard)
+                assign_asset(asset, guard, notes=notes)
             except ValueError as e:
                 return Response(
                     {"error": str(e)},
@@ -149,7 +150,8 @@ class AssetAssignmentAPIView(APIView):
             })
 
         elif action == 'unassign':
-            unassign_asset(asset)
+            notes = request.data.get('notes', '')
+            unassign_asset(asset, notes=notes)
             return Response({
                 "success": True,
                 "message": "Asset unassigned successfully",
@@ -181,3 +183,70 @@ class AssetAssignmentAPIView(APIView):
                 {"error": "Invalid action. Use 'assign', 'unassign', or 'update_status'."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class AssetAssignmentHistoryAPIView(APIView):
+    """
+    Returns assignment history for a specific asset or all assets.
+    """
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get(self, request, asset_id=None):
+        company = request.user.company
+        
+        if asset_id:
+            # Get history for specific asset
+            try:
+                asset = Asset.objects.get(id=asset_id, company=company)
+            except Asset.DoesNotExist:
+                return Response(
+                    {"error": "Asset not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            assignments = AssetAssignment.objects.filter(
+                asset=asset
+            ).select_related('assigned_to').order_by('-assigned_at')
+        else:
+            # Get all assignments for company
+            assignments = AssetAssignment.objects.filter(
+                asset__company=company
+            ).select_related('asset', 'assigned_to').order_by('-assigned_at')
+        
+        serializer = AssetAssignmentSerializer(assignments, many=True)
+        return Response(serializer.data)
+
+
+class GuardAssetAssignmentsAPIView(APIView):
+    """
+    Returns all assets currently assigned to a specific guard.
+    """
+    permission_classes = [IsAuthenticated, IsAdminRole]
+
+    def get(self, request, guard_id=None):
+        company = request.user.company
+        
+        if guard_id:
+            # Get assets assigned to specific guard
+            from accounts.models import User
+            try:
+                guard = User.objects.get(id=guard_id, company=company, role='guard')
+            except User.DoesNotExist:
+                return Response(
+                    {"error": "Guard not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            assets = Asset.objects.filter(
+                assigned_to=guard,
+                company=company
+            ).select_related('category', 'site')
+        else:
+            # Get all assets assigned to any guard
+            assets = Asset.objects.filter(
+                assigned_to__isnull=False,
+                company=company
+            ).select_related('category', 'site', 'assigned_to')
+        
+        serializer = AssetSerializer(assets, many=True)
+        return Response(serializer.data)

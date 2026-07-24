@@ -6,6 +6,8 @@ from .views import (
     AssetViewSet,
     AssetDashboardAPIView,
     AssetAssignmentAPIView,
+    AssetAssignmentHistoryAPIView,
+    GuardAssetAssignmentsAPIView,
 )
 
 router = DefaultRouter()
@@ -15,6 +17,10 @@ router.register(r'', AssetViewSet, basename='asset')
 urlpatterns = [
     path('dashboard/', AssetDashboardAPIView.as_view(), name='asset-dashboard'),
     path('<int:asset_id>/assignment/', AssetAssignmentAPIView.as_view(), name='asset-assignment'),
+    path('assignments/history/', AssetAssignmentHistoryAPIView.as_view(), name='asset-assignment-history'),
+    path('assignments/history/<int:asset_id>/', AssetAssignmentHistoryAPIView.as_view(), name='asset-assignment-history-detail'),
+    path('guards/<int:guard_id>/assets/', GuardAssetAssignmentsAPIView.as_view(), name='guard-asset-assignments'),
+    path('guards/assets/', GuardAssetAssignmentsAPIView.as_view(), name='all-guard-asset-assignments'),
 ]
 
 urlpatterns += router.urls
